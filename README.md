@@ -6,6 +6,10 @@ bereitstellt. Liest die verschlüsselten BLE-Advertisements ("Instant Readout")
 aus, entschlüsselt sie via AES-CTR mit dem Advertisement Key und dekodiert das
 Victron-Bit-Layout.
 
+> 📖 **Vollständige Installationsanleitung** (apt-Pakete, BlueZ-Konfiguration,
+> Docker- und systemd-Deployment, Scan-API, Troubleshooting):
+> **[`docs/INSTALL.md`](docs/INSTALL.md)**
+
 ## Voraussetzungen
 
 - Azul Zulu JDK 25 (oder kompatible OpenJDK 25 Distribution)
@@ -71,8 +75,16 @@ BlueZ auf `hci0` erreichbar ist. Prometheus und Grafana laufen separat
 
 ## API
 
+> ℹ️ **Scanning startet automatisch** (`victron.ble.auto-start: true`) und
+> verarbeitet **nur konfigurierte Geräte**. Mit `POST /api/victron/scan/stop`
+> abschaltbar.
+
 | Methode & Pfad                  | Beschreibung                       |
 |---------------------------------|------------------------------------|
+| `GET /api/victron/devices`      | Konfigurierte Geräte + Last-Seen   |
+| `POST /api/victron/scan/start`  | BLE-Scanning starten               |
+| `POST /api/victron/scan/stop`   | BLE-Scanning stoppen               |
+| `GET /api/victron/scan`         | Scan-Status                        |
 | `GET /api/victron/dashboard`    | Alle Geräte in einem Call          |
 | `GET /api/victron/mppt`         | Alle MPPT-Laderegler               |
 | `GET /api/victron/mppt/{mac}`   | Einzelner MPPT                     |

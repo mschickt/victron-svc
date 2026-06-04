@@ -40,15 +40,85 @@ public class VictronBleScanner {
 
     private DeviceManager deviceManager;
     private BluetoothAdapter adapter;
+    private volatile boolean discovering = false;
+    // Scanning ist standardmäßig AUS und wird per REST-API aktiviert (victron.ble.auto-start=true überschreibt dies).
+    private volatile boolean scanEnabled = false;
 
     void onStart(@Observes StartupEvent ev) {
+        LOG.infof("Victron BLE Konfiguration: Adapter=%s, Scan-Intervall=%s, auto-start=%s",
+            config.ble().adapter(), config.ble().scanInterval(), config.ble().autoStart());
+        LOG.infof("Erlaubte Geräte (%d) — nur diese MACs werden verarbeitet:", config.devices().size());
+        for (var d : config.devices()) {
+            LOG.infof("  • %s  %-20s [%s]", d.mac(), d.name(), d.type());
+        }
+
         try {
             deviceManager = DeviceManager.createInstance(false);
-            adapter = deviceManager.getAdapter(config.ble().adapter());
+        } catch (Exception e) {
+            LOG.error("BLE DeviceManager Initialisierung fehlgeschlagen", e);
+            return;
+        }
+        if (config.ble().autoStart()) {
+            LOG.info("auto-start aktiv: starte BLE Scanning");
+            enableScanning();
+        } else {
+            LOG.info("BLE Scanning deaktiviert; per API aktivierbar via POST /api/victron/scan/start");
+        }
+    }
 
+    /**
+     * Aktiviert das periodische Scanning und startet die BLE-Discovery sofort.
+     * @return {@code true} wenn die Discovery läuft.
+     */
+    public synchronized boolean enableScanning() {
+        scanEnabled = true;
+        return initDiscovery();
+    }
+
+    /** Deaktiviert das Scanning und stoppt die laufende BLE-Discovery. */
+    public synchronized void disableScanning() {
+        scanEnabled = false;
+        if (adapter != null && discovering) {
+            try {
+                adapter.stopDiscovery();
+            } catch (Exception e) {
+                LOG.warnf("Stoppen der BLE-Discovery fehlgeschlagen: %s", e.getMessage());
+            }
+        }
+        discovering = false;
+        LOG.info("BLE Scanning deaktiviert");
+    }
+
+    public boolean isScanningEnabled() {
+        return scanEnabled;
+    }
+
+    /** True wenn die BLE-Discovery aktuell läuft (Adapter bereit und gestartet). */
+    public boolean isDiscovering() {
+        return discovering;
+    }
+
+    /**
+     * Richtet den Adapter ein und startet BLE-Discovery. Idempotent und gefahrlos
+     * wiederholbar: Bei Erfolg wird {@code discovering} gesetzt, bei Fehlschlag bleibt
+     * es {@code false}, sodass {@link #scan()} es beim nächsten Intervall erneut versucht.
+     *
+     * @return {@code true} wenn Discovery läuft.
+     */
+    private synchronized boolean initDiscovery() {
+        if (discovering) return true;
+        if (deviceManager == null) return false;
+        try {
+            adapter = deviceManager.getAdapter(config.ble().adapter());
             if (adapter == null) {
                 LOG.errorf("Bluetooth Adapter '%s' nicht gefunden!", config.ble().adapter());
-                return;
+                return false;
+            }
+
+            // Adapter einschalten, falls DOWN (entspricht `hciconfig hciX up`).
+            // Hinweis: ein rfkill-Softblock kann hierüber NICHT aufgehoben werden.
+            if (!adapter.isPowered()) {
+                adapter.setPowered(true);
             }
 
             // BLE-only Discovery
@@ -57,16 +127,20 @@ public class VictronBleScanner {
             adapter.setDiscoveryFilter(filter);
 
             adapter.startDiscovery();
+            discovering = true;
             LOG.infof("BLE Discovery gestartet auf %s", config.ble().adapter());
+            return true;
 
         } catch (Exception e) {
-            LOG.error("BLE Initialisierung fehlgeschlagen", e);
+            LOG.errorf("BLE Initialisierung fehlgeschlagen, wird erneut versucht: %s", e.getMessage());
+            return false;
         }
     }
 
     @Scheduled(every = "{victron.ble.scan-interval}")
     void scan() {
-        if (adapter == null) return;
+        if (!scanEnabled) return;
+        if (!discovering && !initDiscovery()) return;
 
         try {
             var devices = deviceManager.getDevices(true);
@@ -92,6 +166,8 @@ public class VictronBleScanner {
 
         } catch (Exception e) {
             LOG.warnf("BLE Scan Fehler: %s", e.getMessage());
+            // Discovery evtl. abgerissen (Adapter weg/zurückgesetzt) -> beim nächsten Intervall neu initialisieren.
+            discovering = false;
         }
     }
 

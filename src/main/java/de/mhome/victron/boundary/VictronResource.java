@@ -1,5 +1,6 @@
 package de.mhome.victron.boundary;
 
+import de.mhome.victron.config.VictronConfig;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
 import de.mhome.victron.entity.SmartShuntData;
@@ -9,6 +10,9 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Path("/api/victron")
@@ -16,6 +20,60 @@ import java.util.Map;
 public class VictronResource {
 
     @Inject DeviceStore store;
+    @Inject VictronBleScanner scanner;
+    @Inject VictronConfig config;
+
+    // ── Konfigurierte Geräte + Last-Seen ─────────────────────────────────
+
+    @GET
+    @Path("/devices")
+    public List<DeviceStatus> devices() {
+        Instant now = Instant.now();
+        return config.devices().stream()
+            .map(d -> {
+                Instant seen = store.getLastSeen(d.mac()).orElse(null);
+                return new DeviceStatus(
+                    d.mac(),
+                    d.name(),
+                    d.type().name(),
+                    seen == null ? null : seen.toString(),
+                    seen == null ? null : Duration.between(seen, now).toSeconds()
+                );
+            })
+            .toList();
+    }
+
+    public record DeviceStatus(
+        String mac,
+        String name,
+        String type,
+        String lastSeen,
+        Long   secondsSinceLastSeen
+    ) {}
+
+    // ── BLE Scan-Steuerung (standardmäßig aus, per API aktivieren) ───────
+
+    @POST
+    @Path("/scan/start")
+    public ScanStatus startScan() {
+        boolean discoveryActive = scanner.enableScanning();
+        return new ScanStatus(scanner.isScanningEnabled(), discoveryActive);
+    }
+
+    @POST
+    @Path("/scan/stop")
+    public ScanStatus stopScan() {
+        scanner.disableScanning();
+        return new ScanStatus(scanner.isScanningEnabled(), false);
+    }
+
+    @GET
+    @Path("/scan")
+    public ScanStatus scanStatus() {
+        return new ScanStatus(scanner.isScanningEnabled(), scanner.isDiscovering());
+    }
+
+    public record ScanStatus(boolean scanning, boolean discoveryActive) {}
 
     // ── Alle Geräte ─────────────────────────────────────────────────────
 

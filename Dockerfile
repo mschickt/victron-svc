@@ -12,10 +12,21 @@ RUN apt-get update \
     | tar -xz -C /opt \
  && ln -s "/opt/apache-maven-${MAVEN_VERSION}/bin/mvn" /usr/local/bin/mvn
 
+# Short-lived build JVMs don't benefit from aggressive JIT — cap it at tier 1
+# and use the parallel GC. Noticeably faster Maven startup on a Raspberry Pi.
+ENV MAVEN_OPTS="-XX:TieredStopAtLevel=1 -XX:+UseParallelGC -Dmaven.artifact.threads=8"
+
+# 1) Resolve dependencies in their own layer — cached and re-run ONLY when
+#    pom.xml changes, so source edits skip dependency resolution entirely.
 COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B -q -T 1C -DskipTests dependency:go-offline
+
+# 2) Build. Source-only changes start here. -Dmaven.test.skip=true skips
+#    compiling the tests too; -T 1C builds with all CPU cores.
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2/repository \
-    mvn -B -q -DskipTests package
+    mvn -B -q -T 1C -Dmaven.test.skip=true package
 
 # ---- runtime stage ----
 # Azul Zulu JRE 25 headless. Raspberry Pi OS 64-bit works out of the box.

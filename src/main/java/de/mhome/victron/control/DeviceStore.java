@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Tags;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,12 +27,16 @@ public class DeviceStore {
     private final Set<String> shuntRegistered = ConcurrentHashMap.newKeySet();
     private final Set<String> orionRegistered = ConcurrentHashMap.newKeySet();
 
+    // Zeitpunkt des zuletzt dekodierten Advertisements pro Gerät (MAC, normalisiert).
+    private final Map<String, Instant> lastSeen = new ConcurrentHashMap<>();
+
     @Inject MeterRegistry registry;
     @Inject ReadingRepository repo;
 
     public void updateMppt(MpptData data) {
         String key = normalize(data.mac());
         mpptMap.put(key, data);
+        lastSeen.put(key, Instant.now());
         if (mpptRegistered.add(key)) registerMpptGauges(key, data.name());
         repo.insert(data);
     }
@@ -39,6 +44,7 @@ public class DeviceStore {
     public void updateShunt(SmartShuntData data) {
         String key = normalize(data.mac());
         shuntMap.put(key, data);
+        lastSeen.put(key, Instant.now());
         if (shuntRegistered.add(key)) registerShuntGauges(key, data.name());
         repo.insert(data);
     }
@@ -46,6 +52,7 @@ public class DeviceStore {
     public void updateOrion(OrionData data) {
         String key = normalize(data.mac());
         orionMap.put(key, data);
+        lastSeen.put(key, Instant.now());
         if (orionRegistered.add(key)) registerOrionGauges(key, data.name());
         repo.insert(data);
     }
@@ -58,6 +65,10 @@ public class DeviceStore {
     public Map<String, SmartShuntData> getAllShunt() { return Map.copyOf(shuntMap); }
     public Map<String, OrionData>      getAllOrion() { return Map.copyOf(orionMap); }
 
+    /** Zeitpunkt des zuletzt empfangenen Advertisements für diese MAC (falls je gesehen). */
+    public Optional<Instant> getLastSeen(String mac) { return Optional.ofNullable(lastSeen.get(normalize(mac))); }
+    public Map<String, Instant> getAllLastSeen()     { return Map.copyOf(lastSeen); }
+
     private void registerMpptGauges(String mac, String name) {
         Tags tags = Tags.of("mac", mac, "name", name);
         gauge("victron_mppt_battery_voltage_v", tags, mpptMap, mac, d -> ((MpptData) d).batteryVoltageV());
@@ -66,6 +77,7 @@ public class DeviceStore {
         gauge("victron_mppt_panel_power_w",     tags, mpptMap, mac, d -> ((MpptData) d).panelPowerW());
         gauge("victron_mppt_yield_today_wh",    tags, mpptMap, mac, d -> ((MpptData) d).yieldTodayWh());
         gauge("victron_mppt_charger_state",     tags, mpptMap, mac, d -> ((MpptData) d).chargerState());
+        registerLastSeenGauge(mac, tags);
     }
 
     private void registerShuntGauges(String mac, String name) {
@@ -82,6 +94,7 @@ public class DeviceStore {
             Double t = ((SmartShuntData) d).temperatureC();
             return t == null ? Double.NaN : t;
         });
+        registerLastSeenGauge(mac, tags);
     }
 
     private void registerOrionGauges(String mac, String name) {
@@ -97,6 +110,12 @@ public class DeviceStore {
             return i == null ? Double.NaN : i;
         });
         gauge("victron_orion_state", tags, orionMap, mac, d -> ((OrionData) d).state());
+        registerLastSeenGauge(mac, tags);
+    }
+
+    /** Unix-Zeit (Sekunden) des zuletzt empfangenen Advertisements — für Staleness-Alarme in Prometheus. */
+    private void registerLastSeenGauge(String mac, Tags tags) {
+        gauge("victron_last_seen_epoch_seconds", tags, lastSeen, mac, d -> (double) ((Instant) d).getEpochSecond());
     }
 
     private <T> void gauge(String name, Tags tags, Map<String, T> map, String mac, ToDoubleFunction<Object> extract) {

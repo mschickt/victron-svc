@@ -16,7 +16,10 @@ services:
     environment:
       QUARKUS_HTTP_HOST: "0.0.0.0"
       VICTRON_DB_PATH: /app/data/db/victron.db
-      # Override device credentials via .env or here:
+      # Activates src/main/resources/application-local.yml (real device
+      # credentials, gitignored). Without this the prod profile ignores it.
+      QUARKUS_PROFILE: local
+      # Alternatively override individual devices via env instead of the file:
       # VICTRON_DEVICES_0_MAC: "C0:3E:..."
       # VICTRON_DEVICES_0_ADVERTISEMENT_KEY: "deadbeef..."
     healthcheck:

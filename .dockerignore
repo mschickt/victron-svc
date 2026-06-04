@@ -11,5 +11,7 @@ deploy
 docker-compose.yml
 Dockerfile
 .dockerignore
-src/main/resources/application-local.yml
+# application-local.yml IS baked into the image on purpose (real device list +
+# keys) and loaded via QUARKUS_PROFILE=local. It stays gitignored, so it is
+# never committed — only present in the locally-built image.
 data/

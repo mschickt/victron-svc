@@ -17,17 +17,21 @@ quarkus:
 victron:
   ble:
     adapter: hci0          # BlueZ Adapter
-    scan-interval: 10s
+    scan-interval: 2s      # häufiges Pollen des BlueZ-Caches auf neue Advertisement-Werte
+    auto-start: true       # Scanning startet automatisch; per POST /api/victron/scan/stop abschaltbar
+  # Reale Victron-Geräte (Manufacturer-ID 0x02E1). Die advertisement-key-Werte
+  # hier sind Platzhalter — echte Keys kommen aus application-local.yml
+  # (gitignored, nur Key-Overrides) oder via VICTRON_DEVICES_n_ADVERTISEMENT_KEY.
   devices:
-    - mac: "AA:BB:CC:DD:EE:01"
-      name: "MPPT 100/30"
+    - mac: "EE:CC:44:F2:D8:79"
+      name: "Solar ext."
       type: MPPT
-      advertisement-key: "0123456789abcdef0123456789abcdef"
-    - mac: "AA:BB:CC:DD:EE:02"
-      name: "SmartShunt 500A"
+      advertisement-key: "REPLACE_WITH_SOLAR_EXT_KEY"
+    - mac: "C3:AC:9F:3B:0B:4C"
+      name: "Solar Dach"
+      type: MPPT
+      advertisement-key: "REPLACE_WITH_SOLAR_DACH_KEY"
+    - mac: "DE:9A:A6:20:20:E3"
+      name: "SmartShunt Goldi"
       type: SMART_SHUNT
-      advertisement-key: "0123456789abcdef0123456789abcdef"
-    - mac: "AA:BB:CC:DD:EE:03"
-      name: "Orion-Tr Smart 12/12-30"
-      type: ORION_TR
-      advertisement-key: "0123456789abcdef0123456789abcdef"
+      advertisement-key: "REPLACE_WITH_SMARTSHUNT_KEY"
