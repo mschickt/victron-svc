@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # ---- build stage ----
 # Azul Zulu JDK 25 (multi-arch: amd64, arm64).
-FROM azul/zulu-openjdk:25-jdk AS build
+FROM azul/zulu-openjdk:25 AS build
 WORKDIR /src
 
 RUN apt-get update \

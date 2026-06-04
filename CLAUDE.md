@@ -37,7 +37,8 @@ BlueZ/D-Bus  →  VictronBleScanner  →  AesCtrDecryptor  →  {Mppt,SmartShunt
 - `control/AesCtrDecryptor` — Victron uses AES-CTR with the per-device advertisement key; nonce/IV derives from the advertisement header (2-byte LE nonce + 14 zero bytes).
 - `control/BitReader` + `control/RecordType` — Victron payloads are bit-packed LSB-first (not byte-aligned); decoders walk fields via `BitReader`. RecordType selects the layout.
 - `control/{Mppt,SmartShunt,Orion}Decoder` — bit offsets reconstructed from the [`victron-ble`](https://github.com/keshavdv/victron-ble) Python library. When adjusting layouts, cross-check against that repo and log raw decrypted bytes against VictronConnect values.
-- `control/DeviceStore` — in-memory latest-value cache keyed by MAC, plus registers a set of Micrometer gauges per device on first update (gauges read from the map by reference, so subsequent updates are picked up automatically). No SQL persistence — long-term storage is Prometheus' TSDB.
+- `control/DeviceStore` — in-memory latest-value cache keyed by MAC, plus registers a set of Micrometer gauges per device on first update (gauges read from the map by reference, so subsequent updates are picked up automatically). Long-term aggregates live in Prometheus' TSDB.
+- `control/ReadingRepository` — appends every decoded advertisement to a local SQLite DB (`data/db/victron.db`, override via `VICTRON_DB_PATH`). Tables `mppt_reading`, `shunt_reading`, `orion_reading` are created on startup; one row per BLE frame.
 - `entity/{MpptData,SmartShuntData,OrionData}` — immutable Jackson records. Older Orion firmware without current sensing legitimately returns `null` for `inputCurrentA` / `outputCurrentA`; that nullability is part of the contract.
 - `config/VictronConfig` — `@ConfigMapping` for the device list.
 
