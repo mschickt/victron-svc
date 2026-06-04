@@ -35,7 +35,7 @@ FROM azul/zulu-openjdk:25-jre-headless
 # BlueZ client libs are not required (we talk over D-Bus), but `dbus` is
 # useful for diagnostics inside the container.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends dbus libcap2-bin \
+ && apt-get install -y --no-install-recommends dbus libcap2-bin curl \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
