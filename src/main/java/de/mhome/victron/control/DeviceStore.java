@@ -27,23 +27,27 @@ public class DeviceStore {
     private final Set<String> orionRegistered = ConcurrentHashMap.newKeySet();
 
     @Inject MeterRegistry registry;
+    @Inject ReadingRepository repo;
 
     public void updateMppt(MpptData data) {
         String key = normalize(data.mac());
         mpptMap.put(key, data);
         if (mpptRegistered.add(key)) registerMpptGauges(key, data.name());
+        repo.insert(data);
     }
 
     public void updateShunt(SmartShuntData data) {
         String key = normalize(data.mac());
         shuntMap.put(key, data);
         if (shuntRegistered.add(key)) registerShuntGauges(key, data.name());
+        repo.insert(data);
     }
 
     public void updateOrion(OrionData data) {
         String key = normalize(data.mac());
         orionMap.put(key, data);
         if (orionRegistered.add(key)) registerOrionGauges(key, data.name());
+        repo.insert(data);
     }
 
     public Optional<MpptData>       getMppt(String mac)  { return Optional.ofNullable(mpptMap.get(normalize(mac))); }

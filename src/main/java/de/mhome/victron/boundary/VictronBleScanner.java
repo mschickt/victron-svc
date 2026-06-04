@@ -123,20 +123,17 @@ public class VictronBleScanner {
             case SOLAR_CHARGER -> {
                 var data = mpptDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateMppt(data);
-                LOG.debugf("MPPT %s: %.2fV %.1fA %dW", dc.name(),
-                    data.batteryVoltageV(), data.batteryCurrentA(), data.panelPowerW());
+                LOG.infof("MPPT %s: %s", dc.name(), data);
             }
             case BATTERY_MONITOR -> {
                 var data = shuntDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateShunt(data);
-                LOG.debugf("SmartShunt %s: %.2fV %.1fA SoC=%.1f%%", dc.name(),
-                    data.batteryVoltageV(), data.batteryCurrentA(), data.stateOfChargePercent());
+                LOG.infof("SmartShunt %s: %s", dc.name(), data);
             }
             case DC_DC_CONVERTER -> {
                 var data = orionDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateOrion(data);
-                LOG.debugf("Orion %s: %.2fV->%.2fV %s", dc.name(),
-                    data.inputVoltageV(), data.outputVoltageV(), data.stateLabel());
+                LOG.infof("Orion %s: %s", dc.name(), data);
             }
             default -> LOG.debugf("Record Type %s nicht verarbeitet", recordType.get());
         }

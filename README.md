@@ -53,20 +53,21 @@ sudo systemctl enable --now victron-svc
 journalctl -u victron-svc -f
 ```
 
-### Docker (mit Prometheus + Grafana)
+### Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-- victron-svc:  `http://localhost:8080`
-- Prometheus:   `http://localhost:9090`
-- Grafana:      `http://localhost:3000` (admin/admin) — Dashboard "Victron BLE"
+- victron-svc:  `http://localhost:8090`
+- Prometheus Metrics: `http://localhost:8090/q/metrics`
+- SQLite DB:    `./data/db/victron.db`
 
-Der `victron-svc` Container nutzt `network_mode: host` und mountet den D-Bus
-Socket, damit BlueZ auf `hci0` erreichbar ist. Prometheus und Grafana laufen
-auf dem gleichen Host-Netz und sind so über `localhost` untereinander
-erreichbar.
+Der Container nutzt `network_mode: host` und mountet den D-Bus-Socket, damit
+BlueZ auf `hci0` erreichbar ist. Prometheus und Grafana laufen separat
+(z. B. in einer eigenen Compose-Datei) und scrapen `localhost:8090/q/metrics`
+— Beispiel-Configs liegen unter `deploy/prometheus.yml` und
+`deploy/grafana/`.
 
 ## API
 
@@ -80,6 +81,11 @@ erreichbar.
 | `GET /api/victron/orion`        | Alle Orion-Tr Converter            |
 | `GET /api/victron/orion/{mac}`  | Einzelner Orion                    |
 | `GET /q/metrics`                | Prometheus Metrics (Micrometer)    |
+
+Rohe Messwerte werden zusätzlich lokal in eine **SQLite-DB** geschrieben
+(`data/db/victron.db` bzw. `VICTRON_DB_PATH`). Tabellen: `mppt_reading`,
+`shunt_reading`, `orion_reading` — eine Zeile pro BLE-Advertisement.
+
 | `GET /q/health`                 | Health Check                       |
 
 ## Architektur

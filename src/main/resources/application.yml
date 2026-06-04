@@ -2,11 +2,17 @@ quarkus:
   application:
     name: victron-svc
   http:
-    port: 8080
+    port: 8090
   log:
     category:
       "de.mhome.victron":
         level: INFO
+  datasource:
+    db-kind: other
+    jdbc:
+      driver: org.sqlite.JDBC
+      url: jdbc:sqlite:${VICTRON_DB_PATH:./data/db/victron.db}
+      max-size: 4
 
 victron:
   ble:

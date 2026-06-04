@@ -27,7 +27,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /src/target/quarkus-app/ /app/
 
-EXPOSE 8080
+EXPOSE 8090
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
 
 ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS -jar /app/quarkus-run.jar"]

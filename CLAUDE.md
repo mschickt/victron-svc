@@ -45,7 +45,7 @@ BlueZ/D-Bus  →  VictronBleScanner  →  AesCtrDecryptor  →  {Mppt,SmartShunt
 
 - `Dockerfile` — multi-stage build using `azul/zulu-openjdk:25`. Runtime image is JRE 25 + `dbus`.
 - `docker-compose.yml` — runs victron-svc + Prometheus + Grafana, all `network_mode: host`, so they reach each other via `localhost`. `/var/run/dbus` is mounted into victron-svc with `NET_ADMIN`/`NET_RAW` caps so BlueZ on `hci0` is reachable.
-- `deploy/prometheus.yml` — scrape config (`localhost:8080/q/metrics`, 15s).
+- `deploy/prometheus.yml` — scrape config (`localhost:8090/q/metrics`, 15s).
 - `deploy/grafana/provisioning/` — datasource + dashboard provider configs.
 - `deploy/grafana/dashboards/victron.json` — starter dashboard (battery V/A, SoC, solar power, Orion output).
 - `deploy/victron-svc.service` — systemd unit for native Raspbian install, runs as user `victron`, group `bluetooth`, with `CAP_NET_ADMIN`/`CAP_NET_RAW` ambient caps. Env file at `/etc/victron-svc.env`.

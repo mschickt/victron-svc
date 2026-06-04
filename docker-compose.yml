@@ -9,46 +9,18 @@ services:
     network_mode: host
     volumes:
       - /var/run/dbus:/var/run/dbus
+      - ./data/db:/app/data/db
     cap_add:
       - NET_ADMIN
       - NET_RAW
     environment:
       QUARKUS_HTTP_HOST: "0.0.0.0"
+      VICTRON_DB_PATH: /app/data/db/victron.db
       # Override device credentials via .env or here:
       # VICTRON_DEVICES_0_MAC: "C0:3E:..."
       # VICTRON_DEVICES_0_ADVERTISEMENT_KEY: "deadbeef..."
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/q/health/live || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/q/health/live || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    network_mode: host
-    volumes:
-      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./data/prometheus:/prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=90d
-      - --web.listen-address=:9090
-
-  grafana:
-    image: grafana/grafana-oss:latest
-    container_name: grafana
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SERVER_HTTP_PORT: "3000"
-    volumes:
-      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ./data/grafana:/var/lib/grafana
-    depends_on:
-      - prometheus
