@@ -13,8 +13,8 @@ public interface VictronConfig {
 
     interface Ble {
         String adapter();
-        @WithName("scan-interval-seconds")
-        int scanIntervalSeconds();
+        @WithName("scan-interval")
+        String scanInterval();
     }
 
     interface DeviceConfig {

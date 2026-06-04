@@ -17,7 +17,7 @@ quarkus:
 victron:
   ble:
     adapter: hci0          # BlueZ Adapter
-    scan-interval-seconds: 10
+    scan-interval: 10s
   devices:
     - mac: "AA:BB:CC:DD:EE:01"
       name: "MPPT 100/30"

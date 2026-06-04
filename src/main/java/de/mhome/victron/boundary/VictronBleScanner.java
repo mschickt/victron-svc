@@ -64,7 +64,7 @@ public class VictronBleScanner {
         }
     }
 
-    @Scheduled(every = "{victron.ble.scan-interval-seconds}s")
+    @Scheduled(every = "{victron.ble.scan-interval}")
     void scan() {
         if (adapter == null) return;
 

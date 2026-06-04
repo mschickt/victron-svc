@@ -4,15 +4,18 @@
 FROM azul/zulu-openjdk:25 AS build
 WORKDIR /src
 
+ARG MAVEN_VERSION=3.9.9
 RUN apt-get update \
- && apt-get install -y --no-install-recommends maven \
- && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz" \
+    | tar -xz -C /opt \
+ && ln -s "/opt/apache-maven-${MAVEN_VERSION}/bin/mvn" /usr/local/bin/mvn
 
 COPY pom.xml .
-RUN mvn -B -q -DskipTests dependency:go-offline
-
 COPY src ./src
-RUN mvn -B -q -DskipTests package
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B -q -DskipTests package
 
 # ---- runtime stage ----
 # Azul Zulu JRE 25 headless. Raspberry Pi OS 64-bit works out of the box.
