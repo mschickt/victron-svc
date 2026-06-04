@@ -34,12 +34,20 @@ FROM azul/zulu-openjdk:25-jre-headless
 
 # BlueZ client libs are not required (we talk over D-Bus), but `dbus` is
 # useful for diagnostics inside the container.
+ARG UID=1000
+ARG GID=1000
+
 RUN apt-get update \
  && apt-get install -y --no-install-recommends dbus libcap2-bin curl \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -g ${GID} victron \
+ && useradd -u ${UID} -g ${GID} -s /sbin/nologin -M victron
 
 WORKDIR /app
 COPY --from=build /src/target/quarkus-app/ /app/
+RUN mkdir -p /app/data/db && chown -R ${UID}:${GID} /app
+
+USER ${UID}:${GID}
 
 EXPOSE 8090
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75"

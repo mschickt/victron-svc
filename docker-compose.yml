@@ -1,9 +1,23 @@
 services:
+  # Fixes data/db ownership on first start (runs as root, exits immediately).
+  init-permissions:
+    image: alpine:3
+    volumes:
+      - ./data/db:/data/db
+    command: ["sh", "-c", "mkdir -p /data/db && chown -R ${UID:-1000}:${GID:-1000} /data/db"]
+
   victron-svc:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: victron-svc:latest
     container_name: victron-svc
     restart: unless-stopped
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
     # BlueZ runs on the host. Share the host network and D-Bus socket so the
     # container can talk to BlueZ on hci0.
     network_mode: host
