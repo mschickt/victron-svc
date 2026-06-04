@@ -1,0 +1,56 @@
+{
+  "title": "Victron BLE",
+  "uid": "victron-ble",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(victron_shunt_voltage_v, name)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Battery Voltage (Shunt)", "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "victron_shunt_voltage_v{name=~\"$device\"}", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 2, "title": "Battery Current (Shunt)", "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "victron_shunt_current_a{name=~\"$device\"}", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 3, "title": "State of Charge", "type": "timeseries",
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "victron_shunt_soc_percent", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 4, "title": "Solar Panel Power", "type": "timeseries",
+      "fieldConfig": {"defaults": {"unit": "watt"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "victron_mppt_panel_power_w", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 5, "title": "Solar Yield Today", "type": "stat",
+      "fieldConfig": {"defaults": {"unit": "watth"}},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 16},
+      "targets": [{"expr": "sum(victron_mppt_yield_today_wh)"}]
+    },
+    {
+      "id": 6, "title": "Orion DC/DC Output Voltage", "type": "timeseries",
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 16},
+      "targets": [{"expr": "victron_orion_output_voltage_v", "legendFormat": "{{name}}"}]
+    }
+  ]
+}

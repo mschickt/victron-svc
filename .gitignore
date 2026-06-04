@@ -1,0 +1,7 @@
+target/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+src/main/resources/application-local.yml
+data/

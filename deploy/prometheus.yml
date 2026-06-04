@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: victron-svc
+    metrics_path: /q/metrics
+    static_configs:
+      - targets: ["localhost:8080"]
+        # All three services run with network_mode: host on the same machine,
+        # so prometheus reaches victron-svc via localhost:8080.

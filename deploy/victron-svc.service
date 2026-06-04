@@ -1,0 +1,27 @@
+[Unit]
+Description=Victron BLE Service (Quarkus)
+After=bluetooth.service network-online.target
+Wants=bluetooth.service network-online.target
+
+[Service]
+Type=simple
+User=victron
+Group=bluetooth
+WorkingDirectory=/opt/victron-svc
+EnvironmentFile=-/etc/victron-svc.env
+ExecStart=/usr/bin/java -XX:+UseContainerSupport -jar /opt/victron-svc/quarkus-run.jar
+Restart=on-failure
+RestartSec=5
+
+# BlueZ over D-Bus needs these capabilities, not root.
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/victron-svc
+
+[Install]
+WantedBy=multi-user.target

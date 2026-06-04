@@ -1,0 +1,15 @@
+.git
+.gitignore
+target
+**/*.iml
+.idea
+.vscode
+.DS_Store
+README.md
+CLAUDE.md
+deploy
+docker-compose.yml
+Dockerfile
+.dockerignore
+src/main/resources/application-local.yml
+data/

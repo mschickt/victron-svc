@@ -1,0 +1,27 @@
+quarkus:
+  application:
+    name: victron-svc
+  http:
+    port: 8080
+  log:
+    category:
+      "de.mhome.victron":
+        level: INFO
+
+victron:
+  ble:
+    adapter: hci0          # BlueZ Adapter
+    scan-interval-seconds: 10
+  devices:
+    - mac: "AA:BB:CC:DD:EE:01"
+      name: "MPPT 100/30"
+      type: MPPT
+      advertisement-key: "0123456789abcdef0123456789abcdef"
+    - mac: "AA:BB:CC:DD:EE:02"
+      name: "SmartShunt 500A"
+      type: SMART_SHUNT
+      advertisement-key: "0123456789abcdef0123456789abcdef"
+    - mac: "AA:BB:CC:DD:EE:03"
+      name: "Orion-Tr Smart 12/12-30"
+      type: ORION_TR
+      advertisement-key: "0123456789abcdef0123456789abcdef"
