@@ -43,7 +43,7 @@ public class VictronBleScanner {
 
     void onStart(@Observes StartupEvent ev) {
         try {
-            deviceManager = DeviceManager.getInstance();
+            deviceManager = DeviceManager.createInstance(false);
             adapter = deviceManager.getAdapter(config.ble().adapter());
 
             if (adapter == null) {
