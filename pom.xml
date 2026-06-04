@@ -70,6 +70,12 @@
       <artifactId>bluez-dbus</artifactId>
       <version>0.2.0</version>
     </dependency>
+    <!-- dbus-java transport (required at runtime; bluez-dbus does not pull one in) -->
+    <dependency>
+      <groupId>com.github.hypfvieh</groupId>
+      <artifactId>dbus-java-transport-native-unixsocket</artifactId>
+      <version>4.3.2</version>
+    </dependency>
     <!-- Tests -->
     <dependency>
       <groupId>io.quarkus</groupId>
