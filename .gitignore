@@ -3,5 +3,6 @@ target/
 .vscode/
 *.iml
 .DS_Store
-src/main/resources/application-local.yml
+# Device config + advertisement keys (secrets) — host-only, never committed.
+.env
 data/

@@ -19,19 +19,9 @@ victron:
     adapter: hci0          # BlueZ Adapter
     scan-interval: 2s      # häufiges Pollen des BlueZ-Caches auf neue Advertisement-Werte
     auto-start: true       # Scanning startet automatisch; per POST /api/victron/scan/stop abschaltbar
-  # Reale Victron-Geräte (Manufacturer-ID 0x02E1). Die advertisement-key-Werte
-  # hier sind Platzhalter — echte Keys kommen aus application-local.yml
-  # (gitignored, nur Key-Overrides) oder via VICTRON_DEVICES_n_ADVERTISEMENT_KEY.
-  devices:
-    - mac: "EE:CC:44:F2:D8:79"
-      name: "Solar ext."
-      type: MPPT
-      advertisement-key: "REPLACE_WITH_SOLAR_EXT_KEY"
-    - mac: "C3:AC:9F:3B:0B:4C"
-      name: "Solar Dach"
-      type: MPPT
-      advertisement-key: "REPLACE_WITH_SOLAR_DACH_KEY"
-    - mac: "DE:9A:A6:20:20:E3"
-      name: "SmartShunt Goldi"
-      type: SMART_SHUNT
-      advertisement-key: "REPLACE_WITH_SMARTSHUNT_KEY"
+  # Geräte werden NICHT hier definiert, sondern außerhalb in der .env-Datei
+  # (siehe .env.example). Docker Compose injiziert sie als
+  # VICTRON_DEVICES_<n>_{MAC,NAME,TYPE,ADVERTISEMENT_KEY}; SmallRye Config
+  # mappt diese auf victron.devices[<n>].*. Bewusst KEIN devices-Eintrag hier:
+  # eine leere YAML-Liste ([]) würde die indizierte Env-Struktur überschreiben
+  # (SRCFG00050). Die Liste stammt also rein aus der .env.

@@ -13,17 +13,17 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
+    # Device list + advertisement keys come from the host-only .env file
+    # (gitignored, see .env.example). Compose reads it and injects the
+    # VICTRON_DEVICES_<n>_* variables into the container — .env is never baked
+    # into the image.
+    env_file:
+      - .env
     environment:
       QUARKUS_HTTP_HOST: "0.0.0.0"
       VICTRON_DB_PATH: /app/data/db/victron.db
-      # Activates src/main/resources/application-local.yml (real device
-      # credentials, gitignored). Without this the prod profile ignores it.
-      QUARKUS_PROFILE: local
-      # Alternatively override individual devices via env instead of the file:
-      # VICTRON_DEVICES_0_MAC: "C0:3E:..."
-      # VICTRON_DEVICES_0_ADVERTISEMENT_KEY: "deadbeef..."
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/q/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8090/q/health/live || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

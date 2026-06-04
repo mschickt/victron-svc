@@ -1,6 +1,6 @@
 package de.mhome.victron.boundary;
 
-import de.mhome.victron.config.VictronConfig;
+import de.mhome.victron.config.DeviceRegistry;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
 import de.mhome.victron.entity.SmartShuntData;
@@ -21,7 +21,7 @@ public class VictronResource {
 
     @Inject DeviceStore store;
     @Inject VictronBleScanner scanner;
-    @Inject VictronConfig config;
+    @Inject DeviceRegistry deviceRegistry;
 
     // ── Konfigurierte Geräte + Last-Seen ─────────────────────────────────
 
@@ -29,7 +29,7 @@ public class VictronResource {
     @Path("/devices")
     public List<DeviceStatus> devices() {
         Instant now = Instant.now();
-        return config.devices().stream()
+        return deviceRegistry.devices().stream()
             .map(d -> {
                 Instant seen = store.getLastSeen(d.mac()).orElse(null);
                 return new DeviceStatus(

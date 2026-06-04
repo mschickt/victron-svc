@@ -3,12 +3,13 @@ package de.mhome.victron.boundary;
 import com.github.hypfvieh.bluetooth.DeviceManager;
 import com.github.hypfvieh.bluetooth.wrapper.BluetoothAdapter;
 import com.github.hypfvieh.bluetooth.wrapper.BluetoothDevice;
+import de.mhome.victron.config.DeviceConfig;
+import de.mhome.victron.config.DeviceRegistry;
 import de.mhome.victron.config.VictronConfig;
 import de.mhome.victron.control.MpptDecoder;
 import de.mhome.victron.control.OrionDecoder;
 import de.mhome.victron.control.SmartShuntDecoder;
 import de.mhome.victron.control.AesCtrDecryptor;
-import de.mhome.victron.control.RecordType;
 import de.mhome.victron.control.DeviceStore;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduled;
@@ -32,6 +33,7 @@ public class VictronBleScanner {
     private static final UInt16 VICTRON_MANUFACTURER_ID = new UInt16(0x02E1);
 
     @Inject VictronConfig config;
+    @Inject DeviceRegistry deviceRegistry;
     @Inject DeviceStore store;
     @Inject AesCtrDecryptor decryptor;
     @Inject MpptDecoder mpptDecoder;
@@ -47,8 +49,8 @@ public class VictronBleScanner {
     void onStart(@Observes StartupEvent ev) {
         LOG.infof("Victron BLE Konfiguration: Adapter=%s, Scan-Intervall=%s, auto-start=%s",
             config.ble().adapter(), config.ble().scanInterval(), config.ble().autoStart());
-        LOG.infof("Erlaubte Geräte (%d) — nur diese MACs werden verarbeitet:", config.devices().size());
-        for (var d : config.devices()) {
+        LOG.infof("Erlaubte Geräte (%d) — nur diese MACs werden verarbeitet:", deviceRegistry.devices().size());
+        for (var d : deviceRegistry.devices()) {
             LOG.infof("  • %s  %-20s [%s]", d.mac(), d.name(), d.type());
         }
 
@@ -147,14 +149,14 @@ public class VictronBleScanner {
             if (devices == null) return;
 
             // Bekannte Device-Configs nach MAC indizieren
-            Map<String, VictronConfig.DeviceConfig> configByMac = new HashMap<>();
-            for (var dc : config.devices()) {
+            Map<String, DeviceConfig> configByMac = new HashMap<>();
+            for (var dc : deviceRegistry.devices()) {
                 configByMac.put(normalize(dc.mac()), dc);
             }
 
             for (BluetoothDevice device : devices) {
                 String mac = normalize(device.getAddress());
-                VictronConfig.DeviceConfig dc = configByMac.get(mac);
+                DeviceConfig dc = configByMac.get(mac);
                 if (dc == null) continue; // nicht konfiguriertes Gerät
 
                 Map<UInt16, byte[]> mfData = device.getManufacturerData();
@@ -171,19 +173,42 @@ public class VictronBleScanner {
         }
     }
 
-    private void processAdvertisement(VictronConfig.DeviceConfig dc, byte[] raw) {
-        if (raw == null || raw.length < 4) return;
+    // Victron "Instant Readout" Container-Layout der Manufacturer Data (0x02E1):
+    //   raw[0..1] = Prefix (0x10, 0x02)
+    //   raw[2..3] = Model ID                (uint16, little-endian)
+    //   raw[4]    = Readout-/Record-Typ
+    //   raw[5..6] = Nonce / Daten-Counter   (uint16, little-endian)
+    //   raw[7]    = Key-Check               (= erstes Byte des Advertisement-Keys)
+    //   raw[8..]  = AES-CTR Ciphertext
+    // Ältere Frames ohne 0x10-Präfix sind ein Legacy-Advertisement und werden ignoriert.
+    private static final int FRAME_PREFIX = 0x10;
+    private static final int CIPHERTEXT_OFFSET = 8;
 
-        // raw[0]   = Record Type
-        // raw[1-2] = Nonce (16-bit, little-endian)
-        // raw[3+]  = Encrypted Payload
-        int recordTypeId  = raw[0] & 0xFF;
-        int nonce         = (raw[1] & 0xFF) | ((raw[2] & 0xFF) << 8);
-        byte[] encrypted  = java.util.Arrays.copyOfRange(raw, 3, raw.length);
+    private void processAdvertisement(DeviceConfig dc, byte[] raw) {
+        if (raw == null || raw.length <= CIPHERTEXT_OFFSET) return;
 
-        var recordType = RecordType.fromId(recordTypeId);
-        if (recordType.isEmpty()) {
-            LOG.debugf("Unbekannter Record Type 0x%02X für %s", recordTypeId, dc.mac());
+        // Nur den Instant-Readout-Container (0x10) verarbeiten.
+        if ((raw[0] & 0xFF) != FRAME_PREFIX) {
+            LOG.debugf("Ignoriere Nicht-Instant-Readout-Frame von %s (Präfix 0x%02X)", dc.mac(), raw[0] & 0xFF);
+            return;
+        }
+
+        int nonce       = (raw[5] & 0xFF) | ((raw[6] & 0xFF) << 8);
+        int keyCheck    = raw[7] & 0xFF;
+        byte[] encrypted = java.util.Arrays.copyOfRange(raw, CIPHERTEXT_OFFSET, raw.length);
+
+        // Key-Check: erstes Key-Byte muss mit raw[7] übereinstimmen, sonst ist der
+        // konfigurierte Key falsch — AES-CTR hat kein Auth-Tag und würde sonst stumm Müll liefern.
+        int expectedKeyByte = firstKeyByte(dc.advertisementKey());
+        if (expectedKeyByte < 0) {
+            LOG.warnf("Gerät %s (%s) hat keinen gültigen Advertisement-Key konfiguriert — übersprungen",
+                dc.mac(), dc.name());
+            return;
+        }
+        if (keyCheck != expectedKeyByte) {
+            LOG.warnf("Key-Check fehlgeschlagen für %s (%s): Frame erwartet Key beginnend mit 0x%02X, "
+                + "konfiguriert ist 0x%02X — falscher Advertisement-Key?",
+                dc.mac(), dc.name(), keyCheck, expectedKeyByte);
             return;
         }
 
@@ -195,23 +220,33 @@ public class VictronBleScanner {
             return;
         }
 
-        switch (recordType.get()) {
-            case SOLAR_CHARGER -> {
+        // Dispatch über den konfigurierten Gerätetyp (autoritativ) statt über ein Frame-Byte.
+        switch (dc.type()) {
+            case MPPT -> {
                 var data = mpptDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateMppt(data);
                 LOG.infof("MPPT %s: %s", dc.name(), data);
             }
-            case BATTERY_MONITOR -> {
+            case SMART_SHUNT -> {
                 var data = shuntDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateShunt(data);
                 LOG.infof("SmartShunt %s: %s", dc.name(), data);
             }
-            case DC_DC_CONVERTER -> {
+            case ORION_TR -> {
                 var data = orionDecoder.decode(dc.mac(), dc.name(), decrypted);
                 store.updateOrion(data);
                 LOG.infof("Orion %s: %s", dc.name(), data);
             }
-            default -> LOG.debugf("Record Type %s nicht verarbeitet", recordType.get());
+        }
+    }
+
+    /** Erstes Byte des Hex-Keys als int (0..255), oder -1 wenn der Key fehlt/ungültig ist. */
+    private static int firstKeyByte(String advertisementKey) {
+        if (advertisementKey == null || advertisementKey.length() < 2) return -1;
+        try {
+            return Integer.parseInt(advertisementKey.substring(0, 2), 16);
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 

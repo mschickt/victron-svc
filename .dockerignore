@@ -11,7 +11,7 @@ deploy
 docker-compose.yml
 Dockerfile
 .dockerignore
-# application-local.yml IS baked into the image on purpose (real device list +
-# keys) and loaded via QUARKUS_PROFILE=local. It stays gitignored, so it is
-# never committed — only present in the locally-built image.
+# .env holds device config + secret keys. It is injected at runtime by Docker
+# Compose (env_file) and must NOT be baked into the image.
+.env
 data/
