@@ -25,8 +25,20 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 # 2) Build. Source-only changes start here. -Dmaven.test.skip=true skips
 #    compiling the tests too; -T 1C builds with all CPU cores.
 COPY src ./src
+
+# The .git directory isn't in the build context (.dockerignore), so the
+# git-commit-id plugin can't run here. Inject the commit from the host instead:
+# write git.properties into the resources so quarkus-info exposes it at /q/info.
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG GIT_TIME=
+RUN printf 'git.branch=%s\ngit.commit.id.abbrev=%s\ngit.commit.time=%s\n' \
+      "$GIT_BRANCH" "$GIT_COMMIT" "$GIT_TIME" > src/main/resources/git.properties
+
+# Skip the git-commit-id plugin here: there is no .git in the build context, and
+# if it runs it writes an empty git.properties that shadows the one above.
 RUN --mount=type=cache,target=/root/.m2/repository \
-    mvn -B -q -T 1C -Dmaven.test.skip=true package
+    mvn -B -q -T 1C -Dmaven.test.skip=true -Dmaven.gitcommitid.skip=true package
 
 # ---- runtime stage ----
 # Azul Zulu JRE 25 headless. Raspberry Pi OS 64-bit works out of the box.

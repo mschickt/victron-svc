@@ -12,6 +12,9 @@ services:
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_BRANCH: ${GIT_BRANCH:-unknown}
+        GIT_TIME: ${GIT_TIME:-}
     image: victron-svc:latest
     container_name: victron-svc
     restart: unless-stopped

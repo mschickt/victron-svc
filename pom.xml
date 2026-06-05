@@ -76,6 +76,11 @@
       <artifactId>dbus-java-transport-native-unixsocket</artifactId>
       <version>4.3.2</version>
     </dependency>
+    <!-- Build + git version info at /q/info -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-info</artifactId>
+    </dependency>
     <!-- Tests -->
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -96,6 +101,31 @@
             <goals><goal>build</goal><goal>generate-code</goal><goal>generate-code-tests</goal></goals>
           </execution>
         </executions>
+      </plugin>
+      <!-- Generate git.properties at build time for quarkus-info -->
+      <plugin>
+        <groupId>io.github.git-commit-id</groupId>
+        <artifactId>git-commit-id-maven-plugin</artifactId>
+        <version>9.0.1</version>
+        <executions>
+          <execution>
+            <goals><goal>revision</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- Inside the Docker build there is no .git (it's in .dockerignore);
+               the commit is injected via the Dockerfile instead. Don't fail. -->
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <generateGitPropertiesFile>true</generateGitPropertiesFile>
+          <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+          <includeOnlyProperties>
+            <includeOnlyProperty>git.branch</includeOnlyProperty>
+            <includeOnlyProperty>git.commit.id.abbrev</includeOnlyProperty>
+            <includeOnlyProperty>git.commit.time</includeOnlyProperty>
+            <includeOnlyProperty>git.dirty</includeOnlyProperty>
+          </includeOnlyProperties>
+          <commitIdGenerationMode>full</commitIdGenerationMode>
+        </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>

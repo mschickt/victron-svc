@@ -460,8 +460,13 @@ async function refreshVictron() {
       return renderOffline(dev);
     }).join('');
   } catch(e) {
+    console.error('refreshVictron error:', e);
     document.getElementById('status-dot').className = 'err';
-    document.getElementById('status-text').textContent = 'Verbindungsfehler';
+    document.getElementById('status-text').textContent = 'Fehler: ' + e.message;
+    document.getElementById('loader').style.display = 'none';
+    const grid = document.getElementById('victron-grid');
+    grid.style.display = '';
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:24px;color:var(--red);font-size:13px">Fehler beim Laden: ${e.message}</div>`;
   }
 }
 refreshVictron();
@@ -502,7 +507,7 @@ function renderBleTable(devs) {
   const tbody = document.getElementById('ble-tbody');
   wrap.style.display = '';
 
-  const sorted = [...devs].sort((a,b) => (b.rssiDbm||−120) - (a.rssiDbm||−120));
+  const sorted = [...devs].sort((a,b) => (b.rssiDbm||-120) - (a.rssiDbm||-120));
   tbody.innerHTML = sorted.map((d,i) => {
     const mf = d.manufacturerIds.map(id=>`<span class="mfid">${id}</span>`).join('') || '<span style="color:var(--text-dim)">—</span>';
     const cfg = d.configured ? `<span class="badge badge-ok">Konfiguriert</span>` : '';
@@ -525,7 +530,7 @@ async function showDetail(idx) {
     document.getElementById('ble-tbody').querySelectorAll('tr')[idx]
   )];
   // Use sorted order from table
-  const sorted = [...bleScanData].sort((a,b)=>(b.rssiDbm||−120)-(a.rssiDbm||−120));
+  const sorted = [...bleScanData].sort((a,b)=>(b.rssiDbm||-120)-(a.rssiDbm||-120));
   const dev = sorted[idx];
   if (!dev) return;
 
