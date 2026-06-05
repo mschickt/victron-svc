@@ -468,7 +468,11 @@ function renderMppt(d, dev) {
 }
 
 function renderShunt(d, dev) {
-  const pct = batteryPct(d.stateOfChargePercent ?? d.batteryVoltageV);
+  const soc = d.stateOfChargePercent;
+  const socColor = soc == null ? 'val-dim' : soc > 60 ? 'val-green' : soc > 20 ? 'val-orange' : 'val-red';
+  const currentColor = d.batteryCurrentA == null ? 'val-dim' : d.batteryCurrentA >= 0 ? 'val-green' : 'val-orange';
+  const pct = soc ?? batteryPct(d.batteryVoltageV ?? 12);
+
   return `
     <div class="card">
       <div class="card-header">
@@ -479,27 +483,47 @@ function renderShunt(d, dev) {
             <div class="card-mac">${d.mac}</div>
           </div>
         </div>
-        <span class="badge badge-absorption">Monitor</span>
+        ${soc != null
+          ? `<span class="badge ${soc > 60 ? 'badge-float' : soc > 20 ? 'badge-bulk' : 'badge-fault'}">${soc.toFixed(1)} %</span>`
+          : `<span class="badge badge-unknown">Monitor</span>`}
       </div>
       <div class="card-body">
+        <!-- Battery bar -->
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px">
+            <span>SoC</span><span>${soc != null ? soc.toFixed(1)+'%' : '—'}</span>
+          </div>
+          <div class="battery-bar" style="height:8px">
+            <div class="battery-bar-fill" style="width:${pct.toFixed(1)}%;background:${batteryBarColor(pct)}"></div>
+          </div>
+        </div>
+
         <div class="stats">
           <div class="stat">
             <div class="stat-label">Spannung</div>
-            <div class="stat-val ${voltageClass(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="stat-unit">V</span></div>
+            <div class="stat-val ${voltageClass(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="stat-unit"> V</span></div>
           </div>
           <div class="stat">
             <div class="stat-label">Strom</div>
-            <div class="stat-val val-blue">${fmtA(d.batteryCurrentA)}<span class="stat-unit">A</span></div>
+            <div class="stat-val ${currentColor}">${fmtA(d.batteryCurrentA)}<span class="stat-unit"> A</span></div>
           </div>
-          ${d.stateOfChargePercent != null ? `
           <div class="stat">
-            <div class="stat-label">SoC</div>
-            <div class="stat-val ${d.stateOfChargePercent > 50 ? 'val-green' : d.stateOfChargePercent > 20 ? 'val-orange' : 'val-red'}">${d.stateOfChargePercent.toFixed(0)}<span class="stat-unit">%</span></div>
-          </div>` : ''}
-          ${d.remainingMinutes != null ? `
+            <div class="stat-label">Verbraucht</div>
+            <div class="stat-val val-dim">${d.consumedAh != null ? d.consumedAh.toFixed(1) : '—'}<span class="stat-unit"> Ah</span></div>
+          </div>
+          ${d.timeToGoMinutes != null ? `
           <div class="stat">
             <div class="stat-label">Restlaufzeit</div>
-            <div class="stat-val val-dim">${Math.floor(d.remainingMinutes/60)}h ${d.remainingMinutes % 60}min</div>
+            <div class="stat-val val-dim">${Math.floor(d.timeToGoMinutes/60)}h ${d.timeToGoMinutes % 60}min</div>
+          </div>` : `
+          <div class="stat">
+            <div class="stat-label">Leistung</div>
+            <div class="stat-val ${currentColor}">${d.batteryCurrentA != null && d.batteryVoltageV != null ? (d.batteryCurrentA * d.batteryVoltageV).toFixed(1) : '—'}<span class="stat-unit"> W</span></div>
+          </div>`}
+          ${d.temperatureC != null ? `
+          <div class="stat">
+            <div class="stat-label">Temperatur</div>
+            <div class="stat-val val-blue">${d.temperatureC.toFixed(1)}<span class="stat-unit"> °C</span></div>
           </div>` : ''}
         </div>
       </div>

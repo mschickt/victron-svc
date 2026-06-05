@@ -9,15 +9,15 @@ public record SmartShuntData(
     String name,
     Instant timestamp,
 
-    double batteryVoltageV,     // V
-    double batteryCurrentA,     // A (negativ = Entladung)
-    double stateOfChargePercent,// %
-    double consumedAh,          // Ah (negativ)
-    Integer timeToGoMinutes,    // null wenn laden oder kein Signal
-    int alarmReason,
+    Double batteryVoltageV,      // V  (null wenn N/A)
+    Double batteryCurrentA,      // A  negativ = Entladung (null wenn N/A)
+    Double stateOfChargePercent, // %  (null wenn N/A)
+    Double consumedAh,           // Ah negativ (null wenn N/A)
+    Integer timeToGoMinutes,     // min (null wenn N/A oder unbekannt)
+    int alarmReason,             // Bitfeld (0 = kein Alarm)
     boolean alarm,
 
-    // Hilfseingang (falls konfiguriert: Aux-Spannung oder Midpoint oder Temp)
-    Double auxVoltageV,
-    Double temperatureC         // °C (null wenn nicht konfiguriert)
+    // Hilfseingang — nur eines der drei ist != null, je nach Konfiguration
+    Double auxVoltageV,          // Starter- oder Midpoint-Spannung
+    Double temperatureC          // °C wenn Temp-Sensor konfiguriert
 ) {}

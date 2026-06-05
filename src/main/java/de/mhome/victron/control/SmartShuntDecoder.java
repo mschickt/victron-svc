@@ -1,7 +1,6 @@
 package de.mhome.victron.control;
 
 import de.mhome.victron.entity.SmartShuntData;
-import de.mhome.victron.control.BitReader;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 
@@ -9,47 +8,55 @@ import java.time.Instant;
 public class SmartShuntDecoder {
 
     /**
-     * Victron Battery Monitor Record Type 0x02
-     * Bit-Layout (entschlüsselt, LSB-first):
+     * Victron Battery Monitor / SmartShunt Record Type 0x02
+     * Bit-Layout (entschlüsselt, LSB-first) — Quelle: keshavdv/victron-ble battery_monitor.py
      *
-     *  [0 .. 15]  battery_voltage  int16  × 0.01  → V
-     *  [16.. 31]  alarm_reason     uint16
-     *  [32.. 47]  aux_voltage      int16  × 0.01  → V  (oder Temp/Midpoint je Konfig)
-     *  [48.. 63]  battery_current  int16  × 0.1   → A
-     *  [64.. 83]  consumed_ah      int20  × 0.1   → Ah
-     *  [84.. 93]  state_of_charge  uint10 × 0.1   → %
-     *  [94..109]  time_to_go       uint16          → Minuten (0xFFFF = N/A)
-     *  [110]      alarm            bit
-     *  [111]      (reserviert)
-     *  [112..118] temperature      uint7           → K - 273 = °C (0x7F = N/A)
+     *  [0  .. 15]  remaining_mins  uint16          → min  (0xFFFF = N/A)
+     *  [16 .. 31]  voltage         int16  / 100    → V   (0x7FFF = N/A)
+     *  [32 .. 47]  alarm_reason    uint16
+     *  [48 .. 63]  aux             uint16           → Starter-V / Midpoint-V / Temp je nach Mode
+     *  [64 .. 65]  aux_mode        uint2            → 0=Starter 1=Midpoint 2=Temp 3=Disabled
+     *  [66 .. 87]  current         int22  / 1000   → A   (0x3FFFFF = N/A)
+     *  [88 ..107]  consumed_ah     uint20 / 10 neg → Ah  (0xFFFFF = N/A)
+     *  [108..117]  soc             uint10 / 10     → %   (0x3FF = N/A)
      */
     public SmartShuntData decode(String mac, String name, byte[] decrypted) {
         BitReader r = new BitReader(decrypted);
 
-        double batteryVoltage = r.readInt(0, 16) * 0.01;
-        int alarmReason       = r.readUInt(16, 16);
-        int auxRaw            = r.readInt(32, 16);
+        int ttgRaw      = r.readUInt(0,  16);
+        int voltageRaw  = r.readInt (16, 16);
+        int alarmReason = r.readUInt(32, 16);
+        int auxRaw      = r.readUInt(48, 16);
+        int auxMode     = r.readUInt(64,  2);
+        int currentRaw  = r.readInt (66, 22);
+        int consumedRaw = r.readUInt(88, 20);
+        int socRaw      = r.readUInt(108, 10);
 
-        double batteryCurrent = r.readInt(48, 16) * 0.1;
-        double consumedAh     = r.readInt(64, 20) * 0.1;
-        double soc            = r.readUInt(84, 10) * 0.1;
+        Double voltage  = (voltageRaw  == 0x7FFF)   ? null : voltageRaw  / 100.0;
+        Double current  = (currentRaw  == 0x3FFFFF)  ? null : currentRaw  / 1000.0;
+        Double soc      = (socRaw      == 0x3FF)     ? null : socRaw      / 10.0;
+        Double consumed = (consumedRaw == 0xFFFFF)   ? null : -consumedRaw / 10.0;
+        Integer ttg     = (ttgRaw      == 0xFFFF)    ? null : ttgRaw;
 
-        int ttgRaw    = r.readUInt(94, 16);
-        Integer ttg   = (ttgRaw == 0xFFFF) ? null : ttgRaw;
-
-        boolean alarm = r.readBit(110);
-
-        int tempRaw = r.readUInt(112, 7);
-        Double tempC = (tempRaw == 0x7F) ? null : (tempRaw - 273.0);
-
-        // aux-Eingang: wenn Temperatur konfiguriert → tempC, sonst Spannung
-        Double auxVoltage = (tempRaw != 0x7F) ? null : auxRaw * 0.01;
+        // Aux-Eingang je nach Modus auflösen
+        Double auxVoltage = null;
+        Double tempC      = null;
+        switch (auxMode) {
+            case 0 -> auxVoltage = toSignedInt16(auxRaw) / 100.0;  // Starter-Spannung
+            case 1 -> auxVoltage = auxRaw / 100.0;                  // Midpoint-Spannung
+            case 2 -> tempC      = auxRaw / 100.0 - 273.15;         // Temperatur (K → °C)
+            // 3 = Disabled → beide null
+        }
 
         return new SmartShuntData(
             mac, name, Instant.now(),
-            batteryVoltage, batteryCurrent, soc, consumedAh, ttg,
-            alarmReason, alarm,
+            voltage, current, soc, consumed, ttg,
+            alarmReason, alarmReason != 0,
             auxVoltage, tempC
         );
+    }
+
+    private static int toSignedInt16(int unsigned16) {
+        return unsigned16 > 0x7FFF ? unsigned16 - 0x10000 : unsigned16;
     }
 }
