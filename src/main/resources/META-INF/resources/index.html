@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Victron Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0b1829;
+      --bg-card:     #112240;
+      --bg-card2:    #0d1b35;
+      --blue:        #00a3e0;
+      --blue-dim:    #0070a0;
+      --green:       #2ecc71;
+      --orange:      #f39c12;
+      --red:         #e74c3c;
+      --gray:        #4a6080;
+      --text:        #e8f0fe;
+      --text-dim:    #7a9bbf;
+      --border:      #1e3a5f;
+      --radius:      14px;
+      --radius-sm:   8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 0 0 40px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0d2040 0%, #0a1628 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo svg { flex-shrink: 0; }
+    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); }
+    .logo-text span { color: var(--blue); }
+
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gray);
+      transition: background 0.3s;
+    }
+    #status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #status-dot.err { background: var(--red); }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      padding: 24px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .card:hover { box-shadow: 0 4px 24px rgba(0,163,224,0.12); }
+
+    .card-header {
+      background: var(--bg-card2);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title .icon {
+      width: 34px; height: 34px;
+      background: rgba(0,163,224,0.15);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-title .icon svg { fill: var(--blue); }
+    .card-name { font-size: 15px; font-weight: 600; }
+    .card-mac  { font-size: 11px; color: var(--text-dim); margin-top: 1px; letter-spacing: 0.3px; }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-bulk       { background: rgba(243,156,18,0.2);  color: #f39c12; }
+    .badge-absorption { background: rgba(52,152,219,0.2);  color: #3498db; }
+    .badge-float      { background: rgba(46,204,113,0.2);  color: #2ecc71; }
+    .badge-storage    { background: rgba(46,204,113,0.15); color: #27ae60; }
+    .badge-off        { background: rgba(74,96,128,0.3);   color: var(--text-dim); }
+    .badge-fault      { background: rgba(231,76,60,0.2);   color: #e74c3c; }
+    .badge-offline    { background: rgba(74,96,128,0.2);   color: var(--gray); }
+    .badge-unknown    { background: rgba(74,96,128,0.2);   color: var(--gray); }
+
+    .card-body { padding: 18px; }
+
+    /* ── Flow diagram (Sun → Battery → Load) ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .flow-node {
+      flex: 1;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 8px;
+      text-align: center;
+    }
+    .flow-node .fn-icon { margin-bottom: 4px; }
+    .flow-node .fn-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .flow-node .fn-unit { font-size: 11px; color: var(--text-dim); }
+    .flow-node .fn-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    .flow-arrow {
+      color: var(--text-dim);
+      font-size: 18px;
+      flex-shrink: 0;
+      opacity: 0.5;
+    }
+    .flow-arrow.active { color: var(--blue); opacity: 1; }
+
+    /* ── Stats row ── */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    .stat-label { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
+    .stat-val   { font-size: 20px; font-weight: 700; }
+    .stat-unit  { font-size: 12px; color: var(--text-dim); margin-left: 2px; font-weight: 400; }
+
+    /* voltage color coding */
+    .val-green  { color: var(--green); }
+    .val-orange { color: var(--orange); }
+    .val-red    { color: var(--red); }
+    .val-blue   { color: var(--blue); }
+    .val-dim    { color: var(--text-dim); }
+
+    /* ── Last update ── */
+    .card-footer {
+      padding: 8px 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* ── Offline card ── */
+    .card-offline .card-body {
+      text-align: center;
+      padding: 32px 18px;
+    }
+    .card-offline .offline-icon { opacity: 0.25; margin-bottom: 12px; }
+    .card-offline .offline-msg  { color: var(--text-dim); font-size: 13px; }
+
+    /* ── Battery voltage gauge ── */
+    .battery-bar {
+      height: 5px;
+      background: var(--border);
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .battery-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* ── Solar power arc ── */
+    .solar-arc-wrap {
+      position: relative;
+      width: 70px; height: 38px;
+      margin: 0 auto 4px;
+    }
+    .solar-arc-wrap svg { overflow: visible; }
+
+    /* ── Loader ── */
+    #loader {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      gap: 12px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .grid { padding: 16px; gap: 16px; }
+      .flow-node .fn-val { font-size: 15px; }
+      .stat-val { font-size: 17px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <!-- Victron-style lightning bolt -->
+    <svg width="32" height="32" viewBox="0 0 32 32">
+      <rect width="32" height="32" rx="8" fill="#00a3e0"/>
+      <polygon points="19,4 10,18 15,18 13,28 22,14 17,14" fill="white"/>
+    </svg>
+    <div class="logo-text">Victron <span>Dashboard</span></div>
+  </div>
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <span id="status-text">Verbinde…</span>
+  </div>
+</header>
+
+<div id="loader"><div class="spinner"></div> Lade Daten…</div>
+<div class="grid" id="grid" style="display:none"></div>
+
+<script>
+const API_DASHBOARD = '/api/victron/dashboard';
+const API_DEVICES   = '/api/victron/devices';
+const REFRESH_MS    = 5000;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtV(v) {
+  return v != null ? v.toFixed(2) : '—';
+}
+function fmtA(a) {
+  if (a == null) return '—';
+  return (a >= 0 ? '+' : '') + a.toFixed(1);
+}
+function fmtW(w) {
+  return w != null ? w : '—';
+}
+function fmtWh(wh) {
+  if (wh == null) return '—';
+  return wh >= 1000 ? (wh/1000).toFixed(2) + ' kWh' : wh + ' Wh';
+}
+function fmtAge(isoStr) {
+  if (!isoStr) return 'nie';
+  const diff = Math.round((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 5)  return 'gerade eben';
+  if (diff < 60) return `vor ${diff}s`;
+  if (diff < 3600) return `vor ${Math.round(diff/60)}min`;
+  return `vor ${Math.round(diff/3600)}h`;
+}
+
+function voltageClass(v) {
+  if (v == null) return 'val-dim';
+  if (v >= 13.2) return 'val-green';
+  if (v >= 12.4) return 'val-orange';
+  return 'val-red';
+}
+function batteryPct(v) {
+  // 12V lead-acid: 11.8V=0% … 12.7V=100% (resting), stretched for Li
+  const pct = Math.min(100, Math.max(0, (v - 11.8) / (13.0 - 11.8) * 100));
+  return pct;
+}
+function batteryBarColor(pct) {
+  if (pct >= 60) return 'var(--green)';
+  if (pct >= 30) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function badgeClass(state) {
+  const map = {
+    'Bulk': 'badge-bulk',
+    'Absorption': 'badge-absorption',
+    'Float': 'badge-float',
+    'Storage': 'badge-storage',
+    'Off': 'badge-off',
+    'Fault': 'badge-fault',
+  };
+  return map[state] || 'badge-unknown';
+}
+
+// ── SVG Icons ────────────────────────────────────────────────────────────────
+const ICON_SOLAR = `<svg width="20" height="20" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="4"/>
+  <line x1="12" y1="2"  x2="12" y2="5"  stroke-width="2" stroke="currentColor"/>
+  <line x1="12" y1="19" x2="12" y2="22" stroke-width="2" stroke="currentColor"/>
+  <line x1="2"  y1="12" x2="5"  y2="12" stroke-width="2" stroke="currentColor"/>
+  <line x1="19" y1="12" x2="22" y2="12" stroke-width="2" stroke="currentColor"/>
+  <line x1="4.22"  y1="4.22"  x2="6.34"  y2="6.34"  stroke-width="2" stroke="currentColor"/>
+  <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke-width="2" stroke="currentColor"/>
+  <line x1="4.22"  y1="19.78" x2="6.34"  y2="17.66" stroke-width="2" stroke="currentColor"/>
+  <line x1="17.66" y1="6.34"  x2="19.78" y2="4.22"  stroke-width="2" stroke="currentColor"/>
+</svg>`;
+
+const ICON_BATTERY = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <rect x="2" y="7" width="18" height="10" rx="2"/>
+  <line x1="22" y1="11" x2="22" y2="13" stroke-width="3" stroke-linecap="round"/>
+</svg>`;
+
+const ICON_SHUNT = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <circle cx="12" cy="12" r="9"/>
+  <polyline points="8,15 12,9 16,15"/>
+  <line x1="12" y1="9" x2="12" y2="6"/>
+</svg>`;
+
+const ICON_OFFLINE = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+  <circle cx="12" cy="12" r="9"/>
+  <line x1="9" y1="9" x2="15" y2="15"/>
+  <line x1="15" y1="9" x2="9" y2="15"/>
+</svg>`;
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderMppt(d, dev) {
+  const solarActive = d.panelPowerW > 0;
+  const loadActive  = d.loadState && d.loadCurrentA > 0;
+  const pct = batteryPct(d.batteryVoltageV);
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="icon" style="color:var(--blue)">${ICON_SOLAR}</div>
+          <div>
+            <div class="card-name">${d.name}</div>
+            <div class="card-mac">${d.mac}</div>
+          </div>
+        </div>
+        <span class="badge ${badgeClass(d.chargerStateLabel)}">${d.chargerStateLabel}</span>
+      </div>
+
+      <div class="card-body">
+        <!-- Flow: Solar → Battery → Load -->
+        <div class="flow">
+          <div class="flow-node">
+            <div class="fn-icon" style="color:${solarActive ? '#f1c40f' : 'var(--text-dim)'}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="5"/>
+                <g stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="2"  x2="12" y2="5"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                  <line x1="2"  y1="12" x2="5"  y2="12"/>
+                  <line x1="19" y1="12" x2="22" y2="12"/>
+                  <line x1="4.22" y1="4.22"   x2="6.34" y2="6.34"/>
+                  <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+                  <line x1="4.22" y1="19.78"  x2="6.34" y2="17.66"/>
+                  <line x1="17.66" y1="6.34"  x2="19.78" y2="4.22"/>
+                </g>
+              </svg>
+            </div>
+            <div class="fn-val" style="color:${solarActive ? '#f1c40f' : 'var(--text-dim)'}">
+              ${fmtW(d.panelPowerW)}<span class="fn-unit"> W</span>
+            </div>
+            <div class="fn-label">${fmtV(d.panelVoltageV)} V</div>
+            <div class="fn-label">Solar</div>
+          </div>
+
+          <div class="flow-arrow ${solarActive ? 'active' : ''}">›</div>
+
+          <div class="flow-node">
+            <div class="fn-icon" style="color:${voltageClass(d.batteryVoltageV) === 'val-green' ? 'var(--green)' : voltageClass(d.batteryVoltageV) === 'val-orange' ? 'var(--orange)' : 'var(--red)'}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="18" height="10" rx="2"/>
+                <line x1="22" y1="11" x2="22" y2="13" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="fn-val ${voltageClass(d.batteryVoltageV)}">
+              ${fmtV(d.batteryVoltageV)}<span class="fn-unit"> V</span>
+            </div>
+            <div class="fn-label">${fmtA(d.batteryCurrentA)} A</div>
+            <div class="fn-label">Batterie</div>
+            <div class="battery-bar">
+              <div class="battery-bar-fill" style="width:${pct.toFixed(1)}%;background:${batteryBarColor(pct)}"></div>
+            </div>
+          </div>
+
+          ${d.loadCurrentA != null ? `
+          <div class="flow-arrow ${loadActive ? 'active' : ''}">›</div>
+          <div class="flow-node">
+            <div class="fn-icon" style="color:${loadActive ? 'var(--blue)' : 'var(--text-dim)'}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div class="fn-val" style="color:${loadActive ? 'var(--blue)' : 'var(--text-dim)'}">
+              ${d.loadCurrentA != null ? (d.loadCurrentA * d.batteryVoltageV).toFixed(0) : '—'}<span class="fn-unit"> W</span>
+            </div>
+            <div class="fn-label">${d.loadCurrentA != null ? d.loadCurrentA.toFixed(1) : '—'} A</div>
+            <div class="fn-label">Last</div>
+          </div>
+          ` : ''}
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">Tagesertrag</div>
+            <div class="stat-val val-blue">${fmtWh(d.yieldTodayWh)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Fehlercode</div>
+            <div class="stat-val ${d.errorCode === 0 ? 'val-green' : 'val-red'}">${d.errorCode === 0 ? 'OK' : 'E' + d.errorCode}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span>
+        <span>MPPT</span>
+      </div>
+    </div>`;
+}
+
+function renderShunt(d, dev) {
+  const pct = batteryPct(d.stateOfChargePercent ?? d.batteryVoltageV);
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="icon" style="color:var(--blue)">${ICON_SHUNT}</div>
+          <div>
+            <div class="card-name">${d.name}</div>
+            <div class="card-mac">${d.mac}</div>
+          </div>
+        </div>
+        <span class="badge badge-absorption">Monitor</span>
+      </div>
+      <div class="card-body">
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">Spannung</div>
+            <div class="stat-val ${voltageClass(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="stat-unit">V</span></div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Strom</div>
+            <div class="stat-val val-blue">${fmtA(d.batteryCurrentA)}<span class="stat-unit">A</span></div>
+          </div>
+          ${d.stateOfChargePercent != null ? `
+          <div class="stat">
+            <div class="stat-label">SoC</div>
+            <div class="stat-val ${d.stateOfChargePercent > 50 ? 'val-green' : d.stateOfChargePercent > 20 ? 'val-orange' : 'val-red'}">${d.stateOfChargePercent.toFixed(0)}<span class="stat-unit">%</span></div>
+          </div>` : ''}
+          ${d.remainingMinutes != null ? `
+          <div class="stat">
+            <div class="stat-label">Restlaufzeit</div>
+            <div class="stat-val val-dim">${Math.floor(d.remainingMinutes/60)}h ${d.remainingMinutes % 60}min</div>
+          </div>` : ''}
+        </div>
+      </div>
+      <div class="card-footer">
+        <span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span>
+        <span>SmartShunt</span>
+      </div>
+    </div>`;
+}
+
+function renderOffline(dev) {
+  const icon = dev.type === 'SMART_SHUNT' ? ICON_SHUNT : ICON_SOLAR;
+  const typeLabel = { MPPT: 'MPPT Solar Charger', SMART_SHUNT: 'SmartShunt', ORION_TR: 'Orion-Tr' }[dev.type] || dev.type;
+  return `
+    <div class="card card-offline">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="icon" style="color:var(--gray)">${icon}</div>
+          <div>
+            <div class="card-name" style="color:var(--text-dim)">${dev.name}</div>
+            <div class="card-mac">${dev.mac}</div>
+          </div>
+        </div>
+        <span class="badge badge-offline">Offline</span>
+      </div>
+      <div class="card-body">
+        <div style="text-align:center; padding:20px 0;">
+          <div class="offline-icon" style="color:var(--text-dim)">${ICON_OFFLINE}</div>
+          <div class="offline-msg">${typeLabel}<br>Kein Advertisement-Key konfiguriert</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Fetch & Render Loop ───────────────────────────────────────────────────────
+async function refresh() {
+  try {
+    const [dash, devs] = await Promise.all([
+      fetch(API_DASHBOARD).then(r => r.json()),
+      fetch(API_DEVICES).then(r => r.json()),
+    ]);
+
+    const dot  = document.getElementById('status-dot');
+    const txt  = document.getElementById('status-text');
+    const grid = document.getElementById('grid');
+    const loader = document.getElementById('loader');
+
+    dot.className = 'ok';
+    txt.textContent = new Date().toLocaleTimeString('de-DE');
+    loader.style.display = 'none';
+    grid.style.display   = '';
+
+    let html = '';
+    for (const dev of devs) {
+      const mac = dev.mac.replace(/:/g, '');
+      if (dev.type === 'MPPT' && dash.mppt[mac]) {
+        html += renderMppt(dash.mppt[mac], dev);
+      } else if (dev.type === 'SMART_SHUNT' && dash.shunt[mac]) {
+        html += renderShunt(dash.shunt[mac], dev);
+      } else {
+        html += renderOffline(dev);
+      }
+    }
+    grid.innerHTML = html;
+
+  } catch (e) {
+    document.getElementById('status-dot').className = 'err';
+    document.getElementById('status-text').textContent = 'Verbindungsfehler';
+  }
+}
+
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
