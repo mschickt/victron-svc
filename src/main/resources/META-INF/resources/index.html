@@ -6,253 +6,212 @@
   <title>Victron Dashboard</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:          #0b1829;
-      --bg-card:     #112240;
-      --bg-card2:    #0d1b35;
-      --blue:        #00a3e0;
-      --blue-dim:    #0070a0;
-      --green:       #2ecc71;
-      --orange:      #f39c12;
-      --red:         #e74c3c;
-      --gray:        #4a6080;
-      --text:        #e8f0fe;
-      --text-dim:    #7a9bbf;
-      --border:      #1e3a5f;
-      --radius:      14px;
-      --radius-sm:   8px;
+      --bg:       #0b1829;
+      --bg-card:  #112240;
+      --bg-card2: #0d1b35;
+      --blue:     #00a3e0;
+      --green:    #2ecc71;
+      --orange:   #f39c12;
+      --red:      #e74c3c;
+      --gray:     #4a6080;
+      --text:     #e8f0fe;
+      --text-dim: #7a9bbf;
+      --border:   #1e3a5f;
+      --r:        14px;
+      --r-sm:     8px;
     }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      min-height: 100vh;
-      padding: 0 0 40px;
-    }
+    body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-height:100vh; }
 
     /* ── Header ── */
     header {
-      background: linear-gradient(135deg, #0d2040 0%, #0a1628 100%);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      background:linear-gradient(135deg,#0d2040,#0a1628);
+      border-bottom:1px solid var(--border);
+      padding:14px 24px;
+      display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:20;
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .logo svg { flex-shrink: 0; }
-    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); }
-    .logo-text span { color: var(--blue); }
+    .logo { display:flex; align-items:center; gap:10px; }
+    .logo-text { font-size:17px; font-weight:700; }
+    .logo-text span { color:var(--blue); }
+    #status-bar { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); }
+    #status-dot { width:8px; height:8px; border-radius:50%; background:var(--gray); transition:background .3s; }
+    #status-dot.ok  { background:var(--green); box-shadow:0 0 6px var(--green); }
+    #status-dot.err { background:var(--red); }
 
-    #status-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text-dim);
+    /* ── Tabs ── */
+    .tabs {
+      display:flex; gap:0;
+      border-bottom:1px solid var(--border);
+      background:var(--bg-card2);
+      padding:0 24px;
     }
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--gray);
-      transition: background 0.3s;
+    .tab {
+      padding:12px 20px;
+      font-size:13px; font-weight:600;
+      color:var(--text-dim);
+      cursor:pointer;
+      border-bottom:2px solid transparent;
+      transition:color .15s, border-color .15s;
+      user-select:none;
     }
-    #status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    #status-dot.err { background: var(--red); }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--blue); border-bottom-color:var(--blue); }
 
-    /* ── Grid ── */
+    /* ── Section ── */
+    .section { display:none; padding:24px; max-width:1280px; margin:0 auto; }
+    .section.active { display:block; }
+    .section-title {
+      font-size:13px; font-weight:700; text-transform:uppercase;
+      letter-spacing:1px; color:var(--text-dim);
+      margin-bottom:18px;
+    }
+
+    /* ── Device grid ── */
     .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
-      padding: 24px;
-      max-width: 1280px;
-      margin: 0 auto;
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(310px,1fr));
+      gap:18px;
     }
 
     /* ── Card ── */
     .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      transition: box-shadow 0.2s;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--r); overflow:hidden;
+      transition:box-shadow .2s;
     }
-    .card:hover { box-shadow: 0 4px 24px rgba(0,163,224,0.12); }
-
+    .card:hover { box-shadow:0 4px 24px rgba(0,163,224,.12); }
     .card-header {
-      background: var(--bg-card2);
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
+      background:var(--bg-card2); padding:13px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--border);
     }
-    .card-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .card-title { display:flex; align-items:center; gap:10px; }
+    .card-icon {
+      width:32px; height:32px; border-radius:var(--r-sm);
+      background:rgba(0,163,224,.15);
+      display:flex; align-items:center; justify-content:center;
+      color:var(--blue); flex-shrink:0;
     }
-    .card-title .icon {
-      width: 34px; height: 34px;
-      background: rgba(0,163,224,0.15);
-      border-radius: var(--radius-sm);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .card-title .icon svg { fill: var(--blue); }
-    .card-name { font-size: 15px; font-weight: 600; }
-    .card-mac  { font-size: 11px; color: var(--text-dim); margin-top: 1px; letter-spacing: 0.3px; }
-
-    .badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 20px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .badge-bulk       { background: rgba(243,156,18,0.2);  color: #f39c12; }
-    .badge-absorption { background: rgba(52,152,219,0.2);  color: #3498db; }
-    .badge-float      { background: rgba(46,204,113,0.2);  color: #2ecc71; }
-    .badge-storage    { background: rgba(46,204,113,0.15); color: #27ae60; }
-    .badge-off        { background: rgba(74,96,128,0.3);   color: var(--text-dim); }
-    .badge-fault      { background: rgba(231,76,60,0.2);   color: #e74c3c; }
-    .badge-offline    { background: rgba(74,96,128,0.2);   color: var(--gray); }
-    .badge-unknown    { background: rgba(74,96,128,0.2);   color: var(--gray); }
-
-    .card-body { padding: 18px; }
-
-    /* ── Flow diagram (Sun → Battery → Load) ── */
-    .flow {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 18px;
-    }
-    .flow-node {
-      flex: 1;
-      background: rgba(0,0,0,0.25);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 12px 8px;
-      text-align: center;
-    }
-    .flow-node .fn-icon { margin-bottom: 4px; }
-    .flow-node .fn-val {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.2;
-    }
-    .flow-node .fn-unit { font-size: 11px; color: var(--text-dim); }
-    .flow-node .fn-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
-
-    .flow-arrow {
-      color: var(--text-dim);
-      font-size: 18px;
-      flex-shrink: 0;
-      opacity: 0.5;
-    }
-    .flow-arrow.active { color: var(--blue); opacity: 1; }
-
-    /* ── Stats row ── */
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .stat {
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-    }
-    .stat-label { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
-    .stat-val   { font-size: 20px; font-weight: 700; }
-    .stat-unit  { font-size: 12px; color: var(--text-dim); margin-left: 2px; font-weight: 400; }
-
-    /* voltage color coding */
-    .val-green  { color: var(--green); }
-    .val-orange { color: var(--orange); }
-    .val-red    { color: var(--red); }
-    .val-blue   { color: var(--blue); }
-    .val-dim    { color: var(--text-dim); }
-
-    /* ── Last update ── */
+    .card-name { font-size:14px; font-weight:600; }
+    .card-mac  { font-size:11px; color:var(--text-dim); margin-top:1px; }
+    .card-body { padding:16px; }
     .card-footer {
-      padding: 8px 18px;
-      border-top: 1px solid var(--border);
-      font-size: 11px;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding:7px 16px; border-top:1px solid var(--border);
+      font-size:11px; color:var(--text-dim);
+      display:flex; align-items:center; justify-content:space-between;
     }
 
-    /* ── Offline card ── */
-    .card-offline .card-body {
-      text-align: center;
-      padding: 32px 18px;
+    /* ── Badge ── */
+    .badge {
+      font-size:10px; font-weight:700; padding:3px 9px;
+      border-radius:20px; text-transform:uppercase; letter-spacing:.5px;
+      white-space:nowrap;
     }
-    .card-offline .offline-icon { opacity: 0.25; margin-bottom: 12px; }
-    .card-offline .offline-msg  { color: var(--text-dim); font-size: 13px; }
+    .badge-bulk       { background:rgba(243,156,18,.2);  color:#f39c12; }
+    .badge-absorption { background:rgba(52,152,219,.2);  color:#3498db; }
+    .badge-float      { background:rgba(46,204,113,.2);  color:#2ecc71; }
+    .badge-storage    { background:rgba(46,204,113,.15); color:#27ae60; }
+    .badge-off        { background:rgba(74,96,128,.3);   color:var(--text-dim); }
+    .badge-fault      { background:rgba(231,76,60,.2);   color:#e74c3c; }
+    .badge-offline    { background:rgba(74,96,128,.2);   color:var(--gray); }
+    .badge-ok         { background:rgba(46,204,113,.2);  color:#2ecc71; }
+    .badge-unknown    { background:rgba(74,96,128,.2);   color:var(--gray); }
 
-    /* ── Battery voltage gauge ── */
-    .battery-bar {
-      height: 5px;
-      background: var(--border);
-      border-radius: 3px;
-      margin-top: 8px;
-      overflow: hidden;
+    /* ── Flow ── */
+    .flow { display:flex; align-items:center; gap:6px; margin-bottom:14px; }
+    .flow-node {
+      flex:1; background:rgba(0,0,0,.25); border:1px solid var(--border);
+      border-radius:var(--r-sm); padding:10px 6px; text-align:center;
     }
-    .battery-bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.5s ease;
-    }
+    .fn-val  { font-size:17px; font-weight:700; line-height:1.2; }
+    .fn-unit { font-size:10px; color:var(--text-dim); }
+    .fn-sub  { font-size:10px; color:var(--text-dim); margin-top:3px; }
+    .flow-arrow { color:var(--text-dim); font-size:16px; flex-shrink:0; opacity:.4; }
+    .flow-arrow.on { color:var(--blue); opacity:1; }
 
-    /* ── Solar power arc ── */
-    .solar-arc-wrap {
-      position: relative;
-      width: 70px; height: 38px;
-      margin: 0 auto 4px;
+    /* ── Stats ── */
+    .stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .stat { background:rgba(0,0,0,.2); border:1px solid var(--border); border-radius:var(--r-sm); padding:9px 12px; }
+    .stat-label { font-size:10px; color:var(--text-dim); margin-bottom:2px; }
+    .stat-val   { font-size:18px; font-weight:700; }
+    .stat-unit  { font-size:11px; color:var(--text-dim); font-weight:400; margin-left:2px; }
+
+    /* ── Battery bar ── */
+    .bbar { height:5px; background:var(--border); border-radius:3px; margin-top:6px; overflow:hidden; }
+    .bbar-fill { height:100%; border-radius:3px; transition:width .5s; }
+
+    /* ── Colors ── */
+    .cg { color:var(--green); }
+    .co { color:var(--orange); }
+    .cr { color:var(--red); }
+    .cb { color:var(--blue); }
+    .cd { color:var(--text-dim); }
+
+    /* ── Scanner section ── */
+    .scan-toolbar {
+      display:flex; align-items:center; gap:12px;
+      margin-bottom:20px; flex-wrap:wrap;
     }
-    .solar-arc-wrap svg { overflow: visible; }
+    .btn {
+      padding:8px 18px; border-radius:var(--r-sm);
+      font-size:13px; font-weight:600; cursor:pointer;
+      border:none; transition:opacity .15s;
+    }
+    .btn:hover { opacity:.85; }
+    .btn-primary { background:var(--blue); color:#fff; }
+    .btn-ghost   { background:rgba(0,163,224,.12); color:var(--blue); border:1px solid rgba(0,163,224,.3); }
+    .btn-sm      { padding:5px 12px; font-size:12px; }
+
+    /* ── BLE device table ── */
+    .ble-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .ble-table th {
+      text-align:left; padding:8px 12px;
+      font-size:11px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.5px; color:var(--text-dim);
+      border-bottom:1px solid var(--border);
+    }
+    .ble-table td { padding:10px 12px; border-bottom:1px solid rgba(30,58,95,.5); }
+    .ble-table tr:last-child td { border-bottom:none; }
+    .ble-table tr.configured td { background:rgba(0,163,224,.04); }
+    .ble-table tr:not(.configured):hover td { background:rgba(255,255,255,.02); }
+    .ble-row-btn { cursor:pointer; }
+    .ble-row-btn:hover .ble-mac { color:var(--blue); text-decoration:underline; }
+    .ble-mac  { font-family:monospace; font-size:12px; }
+    .ble-name { font-weight:600; }
+    .rssi-bar { display:inline-block; width:40px; height:4px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+    .mfid { font-family:monospace; font-size:11px; background:rgba(0,163,224,.1); color:var(--blue); padding:1px 6px; border-radius:4px; margin-right:3px; }
+
+    /* ── Device detail panel ── */
+    #detail-panel {
+      margin-top:24px;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--r); overflow:hidden;
+      display:none;
+    }
+    #detail-panel.open { display:block; }
+    .detail-header {
+      background:var(--bg-card2); padding:12px 18px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--border);
+    }
+    .detail-header h3 { font-size:14px; font-weight:600; }
+    .detail-close { cursor:pointer; color:var(--text-dim); font-size:18px; line-height:1; padding:2px 6px; }
+    .detail-close:hover { color:var(--text); }
+    .detail-body { padding:18px; }
+    .detail-kv { display:grid; grid-template-columns:160px 1fr; gap:6px 16px; font-size:13px; }
+    .detail-k { color:var(--text-dim); }
+    .detail-v { font-weight:600; font-family:monospace; }
 
     /* ── Loader ── */
-    #loader {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 300px;
-      gap: 12px;
-      color: var(--text-dim);
-      font-size: 14px;
-    }
-    .spinner {
-      width: 22px; height: 22px;
-      border: 2px solid var(--border);
-      border-top-color: var(--blue);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    #loader { display:flex; align-items:center; justify-content:center; height:250px; gap:12px; color:var(--text-dim); font-size:14px; }
+    .spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
 
-    /* ── Responsive ── */
-    @media (max-width: 480px) {
-      .grid { padding: 16px; gap: 16px; }
-      .flow-node .fn-val { font-size: 15px; }
-      .stat-val { font-size: 17px; }
+    @media(max-width:480px) {
+      .section { padding:16px; }
+      .stat-val { font-size:15px; }
+      .fn-val { font-size:14px; }
     }
   </style>
 </head>
@@ -260,8 +219,7 @@
 
 <header>
   <div class="logo">
-    <!-- Victron-style lightning bolt -->
-    <svg width="32" height="32" viewBox="0 0 32 32">
+    <svg width="30" height="30" viewBox="0 0 32 32">
       <rect width="32" height="32" rx="8" fill="#00a3e0"/>
       <polygon points="19,4 10,18 15,18 13,28 22,14 17,14" fill="white"/>
     </svg>
@@ -273,330 +231,352 @@
   </div>
 </header>
 
-<div id="loader"><div class="spinner"></div> Lade Daten…</div>
-<div class="grid" id="grid" style="display:none"></div>
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('victron', this)">Victron Geräte</div>
+  <div class="tab" onclick="showTab('scanner', this)">BLE Scanner</div>
+</div>
+
+<!-- Section: Victron -->
+<div class="section active" id="tab-victron">
+  <div id="loader"><div class="spinner"></div> Lade Daten…</div>
+  <div class="grid" id="victron-grid" style="display:none"></div>
+</div>
+
+<!-- Section: BLE Scanner -->
+<div class="section" id="tab-scanner">
+  <div class="scan-toolbar">
+    <button class="btn btn-primary" onclick="runScan()">
+      <span id="scan-btn-text">Scan starten</span>
+    </button>
+    <span id="scan-info" style="font-size:12px;color:var(--text-dim)"></span>
+  </div>
+
+  <div id="ble-table-wrap" style="display:none">
+    <div class="section-title">Alle sichtbaren BLE Geräte</div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <table class="ble-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>MAC</th>
+            <th>RSSI</th>
+            <th>Hersteller-IDs</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ble-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Detail panel for selected device -->
+  <div id="detail-panel">
+    <div class="detail-header">
+      <h3 id="detail-title">Gerät</h3>
+      <span class="detail-close" onclick="closeDetail()">✕</span>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
 
 <script>
-const API_DASHBOARD = '/api/victron/dashboard';
-const API_DEVICES   = '/api/victron/devices';
-const REFRESH_MS    = 5000;
+// ── Tab switching ────────────────────────────────────────────────────────────
+function showTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function fmtV(v) {
-  return v != null ? v.toFixed(2) : '—';
-}
-function fmtA(a) {
-  if (a == null) return '—';
-  return (a >= 0 ? '+' : '') + a.toFixed(1);
-}
-function fmtW(w) {
-  return w != null ? w : '—';
-}
-function fmtWh(wh) {
-  if (wh == null) return '—';
-  return wh >= 1000 ? (wh/1000).toFixed(2) + ' kWh' : wh + ' Wh';
-}
-function fmtAge(isoStr) {
-  if (!isoStr) return 'nie';
-  const diff = Math.round((Date.now() - new Date(isoStr)) / 1000);
-  if (diff < 5)  return 'gerade eben';
-  if (diff < 60) return `vor ${diff}s`;
-  if (diff < 3600) return `vor ${Math.round(diff/60)}min`;
-  return `vor ${Math.round(diff/3600)}h`;
-}
-
-function voltageClass(v) {
-  if (v == null) return 'val-dim';
-  if (v >= 13.2) return 'val-green';
-  if (v >= 12.4) return 'val-orange';
-  return 'val-red';
-}
-function batteryPct(v) {
-  // 12V lead-acid: 11.8V=0% … 12.7V=100% (resting), stretched for Li
-  const pct = Math.min(100, Math.max(0, (v - 11.8) / (13.0 - 11.8) * 100));
-  return pct;
-}
-function batteryBarColor(pct) {
-  if (pct >= 60) return 'var(--green)';
-  if (pct >= 30) return 'var(--orange)';
-  return 'var(--red)';
-}
-
-function badgeClass(state) {
-  const map = {
-    'Bulk': 'badge-bulk',
-    'Absorption': 'badge-absorption',
-    'Float': 'badge-float',
-    'Storage': 'badge-storage',
-    'Off': 'badge-off',
-    'Fault': 'badge-fault',
-  };
-  return map[state] || 'badge-unknown';
-}
+const fmtV  = v => v != null ? v.toFixed(2) : '—';
+const fmtA  = a => a == null ? '—' : (a >= 0 ? '+' : '') + a.toFixed(2);
+const fmtW  = w => w != null ? w : '—';
+const fmtWh = w => w == null ? '—' : w >= 1000 ? (w/1000).toFixed(2)+' kWh' : w+' Wh';
+const fmtAge = s => {
+  if (!s) return 'nie';
+  const d = Math.round((Date.now() - new Date(s)) / 1000);
+  if (d < 5) return 'gerade eben';
+  if (d < 60) return `vor ${d}s`;
+  if (d < 3600) return `vor ${Math.round(d/60)}min`;
+  return `vor ${Math.round(d/3600)}h`;
+};
+const vcls = v => v == null ? 'cd' : v >= 13.2 ? 'cg' : v >= 12.4 ? 'co' : 'cr';
+const bpct = v => Math.min(100, Math.max(0, (v - 11.8) / (13.0 - 11.8) * 100));
+const bclr = p => p >= 60 ? 'var(--green)' : p >= 30 ? 'var(--orange)' : 'var(--red)';
+const bdgCls = s => ({'Bulk':'badge-bulk','Absorption':'badge-absorption','Float':'badge-float','Storage':'badge-storage','Off':'badge-off','Fault':'badge-fault'}[s] || 'badge-unknown');
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
-const ICON_SOLAR = `<svg width="20" height="20" viewBox="0 0 24 24">
-  <circle cx="12" cy="12" r="4"/>
-  <line x1="12" y1="2"  x2="12" y2="5"  stroke-width="2" stroke="currentColor"/>
-  <line x1="12" y1="19" x2="12" y2="22" stroke-width="2" stroke="currentColor"/>
-  <line x1="2"  y1="12" x2="5"  y2="12" stroke-width="2" stroke="currentColor"/>
-  <line x1="19" y1="12" x2="22" y2="12" stroke-width="2" stroke="currentColor"/>
-  <line x1="4.22"  y1="4.22"  x2="6.34"  y2="6.34"  stroke-width="2" stroke="currentColor"/>
-  <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke-width="2" stroke="currentColor"/>
-  <line x1="4.22"  y1="19.78" x2="6.34"  y2="17.66" stroke-width="2" stroke="currentColor"/>
-  <line x1="17.66" y1="6.34"  x2="19.78" y2="4.22"  stroke-width="2" stroke="currentColor"/>
-</svg>`;
-
-const ICON_BATTERY = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+const I_SUN = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <circle cx="12" cy="12" r="5"/>
+  <g stroke="currentColor" stroke-width="2">
+    <line x1="12" y1="2"  x2="12" y2="5"/>  <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="2"  y1="12" x2="5"  y2="12"/> <line x1="19" y1="12" x2="22" y2="12"/>
+    <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/> <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+    <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/> <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
+  </g></svg>`;
+const I_BAT = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
   <rect x="2" y="7" width="18" height="10" rx="2"/>
-  <line x1="22" y1="11" x2="22" y2="13" stroke-width="3" stroke-linecap="round"/>
-</svg>`;
+  <line x1="22" y1="11" x2="22" y2="13" stroke-width="3" stroke-linecap="round"/></svg>`;
+const I_SHUNT = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <circle cx="12" cy="12" r="9"/><polyline points="8,15 12,9 16,15"/>
+  <line x1="12" y1="9" x2="12" y2="6"/></svg>`;
+const I_BLE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <polyline points="6.5,6.5 17.5,17.5"/><polyline points="17.5,6.5 6.5,17.5"/>
+  <polyline points="12,3 17.5,6.5 12,10 17.5,13.5 12,17 17.5,20.5"/></svg>`;
 
-const ICON_SHUNT = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <circle cx="12" cy="12" r="9"/>
-  <polyline points="8,15 12,9 16,15"/>
-  <line x1="12" y1="9" x2="12" y2="6"/>
-</svg>`;
-
-const ICON_OFFLINE = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-  <circle cx="12" cy="12" r="9"/>
-  <line x1="9" y1="9" x2="15" y2="15"/>
-  <line x1="15" y1="9" x2="9" y2="15"/>
-</svg>`;
-
-// ── Render ───────────────────────────────────────────────────────────────────
-function renderMppt(d, dev) {
-  const solarActive = d.panelPowerW > 0;
-  const loadActive  = d.loadState && d.loadCurrentA > 0;
-  const pct = batteryPct(d.batteryVoltageV);
-
-  return `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">
-          <div class="icon" style="color:var(--blue)">${ICON_SOLAR}</div>
-          <div>
-            <div class="card-name">${d.name}</div>
-            <div class="card-mac">${d.mac}</div>
-          </div>
-        </div>
-        <span class="badge ${badgeClass(d.chargerStateLabel)}">${d.chargerStateLabel}</span>
+// ── MPPT card ────────────────────────────────────────────────────────────────
+function renderMppt(d) {
+  const solar = d.panelPowerW > 0, load = d.loadState && d.loadCurrentA > 0;
+  const pct = bpct(d.batteryVoltageV);
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-icon">${I_SUN}</div>
+        <div><div class="card-name">${d.name}</div><div class="card-mac">${d.mac}</div></div>
       </div>
-
-      <div class="card-body">
-        <!-- Flow: Solar → Battery → Load -->
-        <div class="flow">
-          <div class="flow-node">
-            <div class="fn-icon" style="color:${solarActive ? '#f1c40f' : 'var(--text-dim)'}">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="5"/>
-                <g stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="2"  x2="12" y2="5"/>
-                  <line x1="12" y1="19" x2="12" y2="22"/>
-                  <line x1="2"  y1="12" x2="5"  y2="12"/>
-                  <line x1="19" y1="12" x2="22" y2="12"/>
-                  <line x1="4.22" y1="4.22"   x2="6.34" y2="6.34"/>
-                  <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
-                  <line x1="4.22" y1="19.78"  x2="6.34" y2="17.66"/>
-                  <line x1="17.66" y1="6.34"  x2="19.78" y2="4.22"/>
-                </g>
-              </svg>
-            </div>
-            <div class="fn-val" style="color:${solarActive ? '#f1c40f' : 'var(--text-dim)'}">
-              ${fmtW(d.panelPowerW)}<span class="fn-unit"> W</span>
-            </div>
-            <div class="fn-label">${fmtV(d.panelVoltageV)} V</div>
-            <div class="fn-label">Solar</div>
-          </div>
-
-          <div class="flow-arrow ${solarActive ? 'active' : ''}">›</div>
-
-          <div class="flow-node">
-            <div class="fn-icon" style="color:${voltageClass(d.batteryVoltageV) === 'val-green' ? 'var(--green)' : voltageClass(d.batteryVoltageV) === 'val-orange' ? 'var(--orange)' : 'var(--red)'}">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="7" width="18" height="10" rx="2"/>
-                <line x1="22" y1="11" x2="22" y2="13" stroke-width="3" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="fn-val ${voltageClass(d.batteryVoltageV)}">
-              ${fmtV(d.batteryVoltageV)}<span class="fn-unit"> V</span>
-            </div>
-            <div class="fn-label">${fmtA(d.batteryCurrentA)} A</div>
-            <div class="fn-label">Batterie</div>
-            <div class="battery-bar">
-              <div class="battery-bar-fill" style="width:${pct.toFixed(1)}%;background:${batteryBarColor(pct)}"></div>
-            </div>
-          </div>
-
-          ${d.loadCurrentA != null ? `
-          <div class="flow-arrow ${loadActive ? 'active' : ''}">›</div>
-          <div class="flow-node">
-            <div class="fn-icon" style="color:${loadActive ? 'var(--blue)' : 'var(--text-dim)'}">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-            <div class="fn-val" style="color:${loadActive ? 'var(--blue)' : 'var(--text-dim)'}">
-              ${d.loadCurrentA != null ? (d.loadCurrentA * d.batteryVoltageV).toFixed(0) : '—'}<span class="fn-unit"> W</span>
-            </div>
-            <div class="fn-label">${d.loadCurrentA != null ? d.loadCurrentA.toFixed(1) : '—'} A</div>
-            <div class="fn-label">Last</div>
-          </div>
-          ` : ''}
+      <span class="badge ${bdgCls(d.chargerStateLabel)}">${d.chargerStateLabel}</span>
+    </div>
+    <div class="card-body">
+      <div class="flow">
+        <div class="flow-node">
+          <div style="color:${solar?'#f1c40f':'var(--text-dim)'};margin-bottom:4px">${I_SUN}</div>
+          <div class="fn-val" style="color:${solar?'#f1c40f':'var(--text-dim)'}">
+            ${fmtW(d.panelPowerW)}<span class="fn-unit"> W</span></div>
+          <div class="fn-sub">${fmtV(d.panelVoltageV)} V · Solar</div>
         </div>
-
-        <!-- Stats -->
-        <div class="stats">
-          <div class="stat">
-            <div class="stat-label">Tagesertrag</div>
-            <div class="stat-val val-blue">${fmtWh(d.yieldTodayWh)}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Fehlercode</div>
-            <div class="stat-val ${d.errorCode === 0 ? 'val-green' : 'val-red'}">${d.errorCode === 0 ? 'OK' : 'E' + d.errorCode}</div>
-          </div>
+        <div class="flow-arrow ${solar?'on':''}">›</div>
+        <div class="flow-node">
+          <div style="color:var(--${vcls(d.batteryVoltageV)==='cg'?'green':vcls(d.batteryVoltageV)==='co'?'orange':'red'});margin-bottom:4px">${I_BAT}</div>
+          <div class="fn-val ${vcls(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="fn-unit"> V</span></div>
+          <div class="fn-sub">${fmtA(d.batteryCurrentA)} A · Batterie</div>
+          <div class="bbar"><div class="bbar-fill" style="width:${pct.toFixed(1)}%;background:${bclr(pct)}"></div></div>
         </div>
+        ${d.loadCurrentA != null ? `
+        <div class="flow-arrow ${load?'on':''}">›</div>
+        <div class="flow-node">
+          <div style="color:${load?'var(--blue)':'var(--text-dim)'};margin-bottom:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/>
+              <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="17" x2="12" y2="17"/>
+            </svg></div>
+          <div class="fn-val" style="color:${load?'var(--blue)':'var(--text-dim)'}">
+            ${(d.loadCurrentA * d.batteryVoltageV).toFixed(0)}<span class="fn-unit"> W</span></div>
+          <div class="fn-sub">${d.loadCurrentA.toFixed(2)} A · Last</div>
+        </div>` : ''}
       </div>
-
-      <div class="card-footer">
-        <span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span>
-        <span>MPPT</span>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Tagesertrag</div>
+          <div class="stat-val cb">${fmtWh(d.yieldTodayWh)}</div></div>
+        <div class="stat"><div class="stat-label">Fehlercode</div>
+          <div class="stat-val ${d.errorCode===0?'cg':'cr'}">${d.errorCode===0?'OK':'E'+d.errorCode}</div></div>
       </div>
-    </div>`;
+    </div>
+    <div class="card-footer"><span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span><span>MPPT</span></div>
+  </div>`;
 }
 
-function renderShunt(d, dev) {
+// ── SmartShunt card ──────────────────────────────────────────────────────────
+function renderShunt(d) {
   const soc = d.stateOfChargePercent;
-  const socColor = soc == null ? 'val-dim' : soc > 60 ? 'val-green' : soc > 20 ? 'val-orange' : 'val-red';
-  const currentColor = d.batteryCurrentA == null ? 'val-dim' : d.batteryCurrentA >= 0 ? 'val-green' : 'val-orange';
-  const pct = soc ?? batteryPct(d.batteryVoltageV ?? 12);
-
-  return `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">
-          <div class="icon" style="color:var(--blue)">${ICON_SHUNT}</div>
-          <div>
-            <div class="card-name">${d.name}</div>
-            <div class="card-mac">${d.mac}</div>
-          </div>
-        </div>
-        ${soc != null
-          ? `<span class="badge ${soc > 60 ? 'badge-float' : soc > 20 ? 'badge-bulk' : 'badge-fault'}">${soc.toFixed(1)} %</span>`
-          : `<span class="badge badge-unknown">Monitor</span>`}
+  const pct = soc ?? bpct(d.batteryVoltageV ?? 12);
+  const cc = d.batteryCurrentA == null ? 'cd' : d.batteryCurrentA >= 0 ? 'cg' : 'co';
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-icon">${I_SHUNT}</div>
+        <div><div class="card-name">${d.name}</div><div class="card-mac">${d.mac}</div></div>
       </div>
-      <div class="card-body">
-        <!-- Battery bar -->
-        <div style="margin-bottom:16px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px">
-            <span>SoC</span><span>${soc != null ? soc.toFixed(1)+'%' : '—'}</span>
-          </div>
-          <div class="battery-bar" style="height:8px">
-            <div class="battery-bar-fill" style="width:${pct.toFixed(1)}%;background:${batteryBarColor(pct)}"></div>
-          </div>
-        </div>
-
-        <div class="stats">
-          <div class="stat">
-            <div class="stat-label">Spannung</div>
-            <div class="stat-val ${voltageClass(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="stat-unit"> V</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Strom</div>
-            <div class="stat-val ${currentColor}">${fmtA(d.batteryCurrentA)}<span class="stat-unit"> A</span></div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Verbraucht</div>
-            <div class="stat-val val-dim">${d.consumedAh != null ? d.consumedAh.toFixed(1) : '—'}<span class="stat-unit"> Ah</span></div>
-          </div>
-          ${d.timeToGoMinutes != null ? `
-          <div class="stat">
-            <div class="stat-label">Restlaufzeit</div>
-            <div class="stat-val val-dim">${Math.floor(d.timeToGoMinutes/60)}h ${d.timeToGoMinutes % 60}min</div>
-          </div>` : `
-          <div class="stat">
-            <div class="stat-label">Leistung</div>
-            <div class="stat-val ${currentColor}">${d.batteryCurrentA != null && d.batteryVoltageV != null ? (d.batteryCurrentA * d.batteryVoltageV).toFixed(1) : '—'}<span class="stat-unit"> W</span></div>
-          </div>`}
-          ${d.temperatureC != null ? `
-          <div class="stat">
-            <div class="stat-label">Temperatur</div>
-            <div class="stat-val val-blue">${d.temperatureC.toFixed(1)}<span class="stat-unit"> °C</span></div>
-          </div>` : ''}
-        </div>
+      ${soc!=null ? `<span class="badge ${soc>60?'badge-float':soc>20?'badge-bulk':'badge-fault'}">${soc.toFixed(1)} %</span>`
+                  : `<span class="badge badge-unknown">Monitor</span>`}
+    </div>
+    <div class="card-body">
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px">
+          <span>State of Charge</span><span>${soc!=null?soc.toFixed(1)+'%':'—'}</span></div>
+        <div class="bbar" style="height:8px">
+          <div class="bbar-fill" style="width:${pct.toFixed(1)}%;background:${bclr(pct)}"></div></div>
       </div>
-      <div class="card-footer">
-        <span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span>
-        <span>SmartShunt</span>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Spannung</div>
+          <div class="stat-val ${vcls(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="stat-unit"> V</span></div></div>
+        <div class="stat"><div class="stat-label">Strom</div>
+          <div class="stat-val ${cc}">${fmtA(d.batteryCurrentA)}<span class="stat-unit"> A</span></div></div>
+        <div class="stat"><div class="stat-label">Verbraucht</div>
+          <div class="stat-val cd">${d.consumedAh!=null?d.consumedAh.toFixed(1):'—'}<span class="stat-unit"> Ah</span></div></div>
+        ${d.timeToGoMinutes!=null ? `
+        <div class="stat"><div class="stat-label">Restlaufzeit</div>
+          <div class="stat-val cd">${Math.floor(d.timeToGoMinutes/60)}h ${d.timeToGoMinutes%60}min</div></div>` : `
+        <div class="stat"><div class="stat-label">Leistung</div>
+          <div class="stat-val ${cc}">${d.batteryCurrentA!=null&&d.batteryVoltageV!=null?(d.batteryCurrentA*d.batteryVoltageV).toFixed(1):'—'}<span class="stat-unit"> W</span></div></div>`}
+        ${d.temperatureC!=null ? `
+        <div class="stat"><div class="stat-label">Temperatur</div>
+          <div class="stat-val cb">${d.temperatureC.toFixed(1)}<span class="stat-unit"> °C</span></div></div>` : ''}
       </div>
-    </div>`;
+    </div>
+    <div class="card-footer"><span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span><span>SmartShunt</span></div>
+  </div>`;
 }
 
 function renderOffline(dev) {
-  const icon = dev.type === 'SMART_SHUNT' ? ICON_SHUNT : ICON_SOLAR;
-  const typeLabel = { MPPT: 'MPPT Solar Charger', SMART_SHUNT: 'SmartShunt', ORION_TR: 'Orion-Tr' }[dev.type] || dev.type;
-  return `
-    <div class="card card-offline">
-      <div class="card-header">
-        <div class="card-title">
-          <div class="icon" style="color:var(--gray)">${icon}</div>
-          <div>
-            <div class="card-name" style="color:var(--text-dim)">${dev.name}</div>
-            <div class="card-mac">${dev.mac}</div>
-          </div>
-        </div>
-        <span class="badge badge-offline">Offline</span>
+  const icon = dev.type==='SMART_SHUNT' ? I_SHUNT : I_SUN;
+  const label = {MPPT:'MPPT Solar Charger',SMART_SHUNT:'SmartShunt',ORION_TR:'Orion-Tr'}[dev.type]||dev.type;
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-icon" style="background:rgba(74,96,128,.2);color:var(--gray)">${icon}</div>
+        <div><div class="card-name" style="color:var(--text-dim)">${dev.name}</div>
+          <div class="card-mac">${dev.mac}</div></div>
       </div>
-      <div class="card-body">
-        <div style="text-align:center; padding:20px 0;">
-          <div class="offline-icon" style="color:var(--text-dim)">${ICON_OFFLINE}</div>
-          <div class="offline-msg">${typeLabel}<br>Kein Advertisement-Key konfiguriert</div>
-        </div>
-      </div>
-    </div>`;
+      <span class="badge badge-offline">Offline</span>
+    </div>
+    <div class="card-body" style="text-align:center;padding:28px 16px">
+      <div style="opacity:.2;margin-bottom:10px;color:var(--text-dim)">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/>
+          <line x1="15" y1="9" x2="9" y2="15"/></svg></div>
+      <div style="color:var(--text-dim);font-size:13px">${label}<br>Kein Advertisement-Key konfiguriert</div>
+    </div>
+  </div>`;
 }
 
-// ── Fetch & Render Loop ───────────────────────────────────────────────────────
-async function refresh() {
+// ── Victron auto-refresh ─────────────────────────────────────────────────────
+async function refreshVictron() {
   try {
     const [dash, devs] = await Promise.all([
-      fetch(API_DASHBOARD).then(r => r.json()),
-      fetch(API_DEVICES).then(r => r.json()),
+      fetch('/api/victron/dashboard').then(r=>r.json()),
+      fetch('/api/victron/devices').then(r=>r.json()),
     ]);
-
-    const dot  = document.getElementById('status-dot');
-    const txt  = document.getElementById('status-text');
-    const grid = document.getElementById('grid');
-    const loader = document.getElementById('loader');
-
-    dot.className = 'ok';
-    txt.textContent = new Date().toLocaleTimeString('de-DE');
-    loader.style.display = 'none';
-    grid.style.display   = '';
-
-    let html = '';
-    for (const dev of devs) {
-      const mac = dev.mac.replace(/:/g, '');
-      if (dev.type === 'MPPT' && dash.mppt[mac]) {
-        html += renderMppt(dash.mppt[mac], dev);
-      } else if (dev.type === 'SMART_SHUNT' && dash.shunt[mac]) {
-        html += renderShunt(dash.shunt[mac], dev);
-      } else {
-        html += renderOffline(dev);
-      }
-    }
-    grid.innerHTML = html;
-
-  } catch (e) {
+    document.getElementById('status-dot').className = 'ok';
+    document.getElementById('status-text').textContent = new Date().toLocaleTimeString('de-DE');
+    document.getElementById('loader').style.display = 'none';
+    const grid = document.getElementById('victron-grid');
+    grid.style.display = '';
+    grid.innerHTML = devs.map(dev => {
+      const mac = dev.mac.replace(/:/g,'');
+      if (dev.type==='MPPT' && dash.mppt[mac])       return renderMppt(dash.mppt[mac]);
+      if (dev.type==='SMART_SHUNT' && dash.shunt[mac]) return renderShunt(dash.shunt[mac]);
+      return renderOffline(dev);
+    }).join('');
+  } catch(e) {
     document.getElementById('status-dot').className = 'err';
     document.getElementById('status-text').textContent = 'Verbindungsfehler';
   }
 }
+refreshVictron();
+setInterval(refreshVictron, 5000);
 
-refresh();
-setInterval(refresh, REFRESH_MS);
+// ── BLE Scanner ──────────────────────────────────────────────────────────────
+let bleScanData = [];
+
+function rssiColor(r) {
+  if (r == null) return 'var(--text-dim)';
+  if (r >= -65) return 'var(--green)';
+  if (r >= -80) return 'var(--orange)';
+  return 'var(--red)';
+}
+function rssiWidth(r) {
+  if (r == null) return 10;
+  return Math.max(5, Math.min(100, (r + 100) * 2));
+}
+
+async function runScan() {
+  const btn = document.getElementById('scan-btn-text');
+  const info = document.getElementById('scan-info');
+  btn.textContent = 'Scanne…';
+  info.textContent = '';
+  try {
+    const devs = await fetch('/api/victron/ble/devices').then(r=>r.json());
+    bleScanData = devs;
+    renderBleTable(devs);
+    info.textContent = `${devs.length} Geräte gefunden · ${new Date().toLocaleTimeString('de-DE')}`;
+  } catch(e) {
+    info.textContent = 'Fehler beim Scan';
+  }
+  btn.textContent = 'Erneut scannen';
+}
+
+function renderBleTable(devs) {
+  const wrap = document.getElementById('ble-table-wrap');
+  const tbody = document.getElementById('ble-tbody');
+  wrap.style.display = '';
+
+  const sorted = [...devs].sort((a,b) => (b.rssiDbm||−120) - (a.rssiDbm||−120));
+  tbody.innerHTML = sorted.map((d,i) => {
+    const mf = d.manufacturerIds.map(id=>`<span class="mfid">${id}</span>`).join('') || '<span style="color:var(--text-dim)">—</span>';
+    const cfg = d.configured ? `<span class="badge badge-ok">Konfiguriert</span>` : '';
+    return `<tr class="${d.configured?'configured':''} ble-row-btn" onclick="showDetail(${i})">
+      <td><span class="ble-name">${d.name||'—'}</span></td>
+      <td><span class="ble-mac">${d.mac}</span></td>
+      <td>
+        <span class="rssi-bar" style="background:${rssiColor(d.rssiDbm)};width:${rssiWidth(d.rssiDbm)}px;opacity:.7"></span>
+        <span style="color:${rssiColor(d.rssiDbm)};font-size:12px">${d.rssiDbm!=null?d.rssiDbm+' dBm':'—'}</span>
+      </td>
+      <td>${mf}</td>
+      <td>${cfg}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Device detail ────────────────────────────────────────────────────────────
+async function showDetail(idx) {
+  const d = bleScanData[[...document.getElementById('ble-tbody').querySelectorAll('tr')].indexOf(
+    document.getElementById('ble-tbody').querySelectorAll('tr')[idx]
+  )];
+  // Use sorted order from table
+  const sorted = [...bleScanData].sort((a,b)=>(b.rssiDbm||−120)-(a.rssiDbm||−120));
+  const dev = sorted[idx];
+  if (!dev) return;
+
+  const panel = document.getElementById('detail-panel');
+  const title = document.getElementById('detail-title');
+  const body  = document.getElementById('detail-body');
+
+  title.textContent = `${dev.name || dev.mac} · ${dev.mac}`;
+  panel.classList.add('open');
+  body.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Lade…</div>';
+
+  // Scroll to panel
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  let html = `<div class="detail-kv">
+    <span class="detail-k">MAC</span><span class="detail-v">${dev.mac}</span>
+    <span class="detail-k">Name</span><span class="detail-v">${dev.name||'—'}</span>
+    <span class="detail-k">RSSI</span><span class="detail-v" style="color:${rssiColor(dev.rssiDbm)}">${dev.rssiDbm!=null?dev.rssiDbm+' dBm':'—'}</span>
+    <span class="detail-k">Hersteller-IDs</span><span class="detail-v">${dev.manufacturerIds.join(', ')||'—'}</span>
+    <span class="detail-k">Konfiguriert</span><span class="detail-v">${dev.configured?'Ja':'Nein'}</span>
+  </div>`;
+
+  if (dev.configured) {
+    // Try to fetch decoded values
+    const mac = dev.mac.replace(/:/g,'');
+    const results = await Promise.allSettled([
+      fetch(`/api/victron/mppt/${mac}`).then(r=>r.ok?r.json():null),
+      fetch(`/api/victron/shunt/${mac}`).then(r=>r.ok?r.json():null),
+      fetch(`/api/victron/orion/${mac}`).then(r=>r.ok?r.json():null),
+    ]);
+    const [mppt, shunt, orion] = results.map(r=>r.status==='fulfilled'?r.value:null);
+    const data = mppt || shunt || orion;
+
+    if (data) {
+      html += `<hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">Letzte Messwerte</div>
+        <div class="detail-kv">`;
+      for (const [k,v] of Object.entries(data)) {
+        if (k==='mac'||k==='name') continue;
+        html += `<span class="detail-k">${k}</span><span class="detail-v">${v!=null?v:'-'}</span>`;
+      }
+      html += `</div>`;
+    }
+  }
+
+  body.innerHTML = html;
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
 </script>
 </body>
 </html>
