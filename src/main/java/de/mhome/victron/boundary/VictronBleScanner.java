@@ -95,6 +95,10 @@ public class VictronBleScanner {
         return scanEnabled;
     }
 
+    public DeviceManager deviceManager() {
+        return deviceManager;
+    }
+
     /** True wenn die BLE-Discovery aktuell läuft (Adapter bereit und gestartet). */
     public boolean isDiscovering() {
         return discovering;
@@ -217,6 +221,11 @@ public class VictronBleScanner {
             decrypted = decryptor.decrypt(encrypted, nonce, dc.advertisementKey());
         } catch (Exception e) {
             LOG.warnf("Entschlüsselung fehlgeschlagen für %s: %s", dc.mac(), e.getMessage());
+            return;
+        }
+
+        if (dc.vendor() != de.mhome.victron.config.Vendor.VICTRON) {
+            LOG.debugf("Gerät %s (%s): Vendor %s noch nicht unterstützt — übersprungen", dc.mac(), dc.name(), dc.vendor());
             return;
         }
 

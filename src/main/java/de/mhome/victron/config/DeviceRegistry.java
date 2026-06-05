@@ -40,9 +40,10 @@ public class DeviceRegistry {
                 break; // erster fehlender Index beendet die Liste
             }
 
-            String name = config.getOptionalValue(prefix + "NAME", String.class).orElse(mac.get());
-            String typeRaw = config.getOptionalValue(prefix + "TYPE", String.class).orElse("MPPT");
-            String key = config.getOptionalValue(prefix + "ADVERTISEMENT_KEY", String.class).orElse("");
+            String name      = config.getOptionalValue(prefix + "NAME",   String.class).orElse(mac.get());
+            String typeRaw   = config.getOptionalValue(prefix + "TYPE",   String.class).orElse("MPPT");
+            String vendorRaw = config.getOptionalValue(prefix + "VENDOR", String.class).orElse("VICTRON");
+            String key       = config.getOptionalValue(prefix + "ADVERTISEMENT_KEY", String.class).orElse("");
 
             DeviceType type;
             try {
@@ -53,7 +54,16 @@ public class DeviceRegistry {
                 continue;
             }
 
-            devices.add(new DeviceConfig(mac.get().trim(), name.trim(), type, key.trim()));
+            Vendor vendor;
+            try {
+                vendor = Vendor.valueOf(vendorRaw.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                LOG.warnf("Gerät %d (%s): unbekannter VENDOR '%s' — verwende VICTRON (erlaubt: %s)",
+                    i, mac.get(), vendorRaw, java.util.Arrays.toString(Vendor.values()));
+                vendor = Vendor.VICTRON;
+            }
+
+            devices.add(new DeviceConfig(mac.get().trim(), name.trim(), vendor, type, key.trim()));
         }
     }
 

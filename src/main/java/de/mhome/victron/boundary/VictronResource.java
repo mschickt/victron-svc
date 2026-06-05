@@ -142,5 +142,50 @@ public class VictronResource {
         Map<String, OrionData>      orion
     ) {}
 
+    // ── BLE Discovery: alle sichtbaren Geräte ───────────────────────────────
+
+    @GET
+    @Path("/ble/devices")
+    public List<BleDevice> bleDevices() {
+        var dm = scanner.deviceManager();
+        if (dm == null) return List.of();
+
+        var devices = dm.getDevices(true);
+        if (devices == null) return List.of();
+
+        var configured = deviceRegistry.devices().stream()
+            .map(d -> d.mac().toUpperCase().replaceAll("[^A-F0-9]", ""))
+            .collect(java.util.stream.Collectors.toSet());
+
+        return devices.stream()
+            .filter(d -> d.getAddress() != null)
+            .map(d -> {
+                String mac = d.getAddress();
+                String macNorm = mac.toUpperCase().replaceAll("[^A-F0-9]", "");
+                var mfData = d.getManufacturerData();
+                var mfIds = mfData == null ? List.<String>of() :
+                    mfData.keySet().stream()
+                        .map(k -> "0x" + String.format("%04X", k.intValue()))
+                        .toList();
+                return new BleDevice(
+                    mac,
+                    d.getName(),
+                    d.getRssi() != null ? d.getRssi().intValue() : null,
+                    mfIds,
+                    configured.contains(macNorm)
+                );
+            })
+            .sorted(java.util.Comparator.comparing(b -> b.mac()))
+            .toList();
+    }
+
+    public record BleDevice(
+        String mac,
+        String name,
+        Integer rssiDbm,
+        List<String> manufacturerIds,
+        boolean configured
+    ) {}
+
     // Prometheus metrics are exposed by Micrometer at /q/metrics
 }
