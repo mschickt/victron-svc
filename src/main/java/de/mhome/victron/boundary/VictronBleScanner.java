@@ -45,6 +45,10 @@ public class VictronBleScanner {
     private volatile boolean discovering = false;
     // Scanning ist standardmäßig AUS und wird per REST-API aktiviert (victron.ble.auto-start=true überschreibt dies).
     private volatile boolean scanEnabled = false;
+    // Vorübergehend angehalten (z. B. während eine GATT-Verbindung — DalyBleScanner — aufgebaut wird).
+    // Solange gesetzt, startet scan() die Discovery NICHT neu, da aktive Discovery LE-Verbindungen
+    // mit "le-connection-abort-by-local" abbricht.
+    private volatile boolean discoveryPaused = false;
 
     void onStart(@Observes StartupEvent ev) {
         LOG.infof("Victron BLE Konfiguration: Adapter=%s, Scan-Intervall=%s, auto-start=%s",
@@ -99,6 +103,30 @@ public class VictronBleScanner {
         return deviceManager;
     }
 
+    /**
+     * Hält die laufende BLE-Discovery vorübergehend an, damit eine exklusive GATT-Verbindung
+     * (z. B. zur Bulltron/Daly-Batterie) aufgebaut werden kann. Aktive Discovery lässt sonst
+     * {@code connect()} mit {@code le-connection-abort-by-local} scheitern. Die Discovery wird
+     * NICHT automatisch neu gestartet, bis {@link #resumeDiscovery()} aufgerufen wird.
+     */
+    public synchronized void pauseDiscovery() {
+        discoveryPaused = true;
+        if (adapter != null && discovering) {
+            try {
+                adapter.stopDiscovery();
+            } catch (Exception e) {
+                LOG.warnf("Pausieren der BLE-Discovery fehlgeschlagen: %s", e.getMessage());
+            }
+        }
+        discovering = false;
+    }
+
+    /** Setzt eine zuvor mit {@link #pauseDiscovery()} angehaltene Discovery fort (falls Scanning aktiv). */
+    public synchronized void resumeDiscovery() {
+        discoveryPaused = false;
+        if (scanEnabled) initDiscovery();
+    }
+
     /** True wenn die BLE-Discovery aktuell läuft (Adapter bereit und gestartet). */
     public boolean isDiscovering() {
         return discovering;
@@ -113,6 +141,7 @@ public class VictronBleScanner {
      */
     private synchronized boolean initDiscovery() {
         if (discovering) return true;
+        if (discoveryPaused) return false; // bewusst angehalten für eine GATT-Verbindung
         if (deviceManager == null) return false;
         try {
             adapter = deviceManager.getAdapter(config.ble().adapter());
@@ -146,6 +175,7 @@ public class VictronBleScanner {
     @Scheduled(every = "{victron.ble.scan-interval}")
     void scan() {
         if (!scanEnabled) return;
+        if (discoveryPaused) return; // GATT-Verbindung läuft gerade — Discovery bleibt aus
         if (!discovering && !initDiscovery()) return;
 
         try {

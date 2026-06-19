@@ -19,5 +19,15 @@ public interface VictronConfig {
         @WithName("auto-start")
         @WithDefault("false")
         boolean autoStart();
+
+        /** Kommagetrennte Namens-Präfixe (case-insensitive); Treffer werden aus der Discovery-Liste ausgeblendet. */
+        @WithName("blacklist-names")
+        @WithDefault("")
+        String blacklistNames();
+
+        /** Kommagetrennte MAC-Adressen; Treffer werden aus der Discovery-Liste ausgeblendet. */
+        @WithName("blacklist-macs")
+        @WithDefault("")
+        String blacklistMacs();
     }
 }

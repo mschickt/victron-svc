@@ -19,6 +19,8 @@ victron:
     adapter: hci0          # BlueZ Adapter
     scan-interval: 2s      # häufiges Pollen des BlueZ-Caches auf neue Advertisement-Werte
     auto-start: true       # Scanning startet automatisch; per POST /api/victron/scan/stop abschaltbar
+    blacklist-names: "NO"  # kommagetrennte Namens-Präfixe (case-insensitive), z.B. "NO,Unknown"
+    blacklist-macs: ""     # kommagetrennte MAC-Adressen
   # Geräte werden NICHT hier definiert, sondern außerhalb in der .env-Datei
   # (siehe .env.example). Docker Compose injiziert sie als
   # VICTRON_DEVICES_<n>_{MAC,NAME,TYPE,ADVERTISEMENT_KEY}; SmallRye Config

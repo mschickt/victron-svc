@@ -1,6 +1,8 @@
 package de.mhome.victron.boundary;
 
+import de.mhome.victron.config.BleBlacklist;
 import de.mhome.victron.config.DeviceRegistry;
+import de.mhome.victron.entity.BulltronData;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
 import de.mhome.victron.entity.SmartShuntData;
@@ -9,6 +11,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -22,6 +25,21 @@ public class VictronResource {
     @Inject DeviceStore store;
     @Inject VictronBleScanner scanner;
     @Inject DeviceRegistry deviceRegistry;
+    @Inject BleBlacklist blacklist;
+
+    /** Frei wählbarer Dashboard-Titel (über DASHBOARD_TITLE / dashboard.title), Default "Dashboard". */
+    @ConfigProperty(name = "dashboard.title", defaultValue = "Dashboard")
+    String dashboardTitle;
+
+    // ── UI-Konfiguration (Titel etc.) ───────────────────────────────────
+
+    @GET
+    @Path("/config")
+    public UiConfig uiConfig() {
+        return new UiConfig(dashboardTitle);
+    }
+
+    public record UiConfig(String title) {}
 
     // ── Konfigurierte Geräte + Last-Seen ─────────────────────────────────
 
@@ -95,6 +113,12 @@ public class VictronResource {
         return store.getAllOrion();
     }
 
+    @GET
+    @Path("/battery")
+    public Map<String, BulltronData> allBattery() {
+        return store.getAllBattery();
+    }
+
     // ── Einzelne Geräte nach MAC ─────────────────────────────────────────
 
     @GET
@@ -124,6 +148,15 @@ public class VictronResource {
                 .entity(Map.of("error", "Orion nicht gefunden: " + mac)).build());
     }
 
+    @GET
+    @Path("/battery/{mac}")
+    public Response batteryByMac(@PathParam("mac") String mac) {
+        return store.getBattery(mac)
+            .map(d -> Response.ok(d).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(Map.of("error", "Batterie nicht gefunden: " + mac)).build());
+    }
+
     // ── Dashboard: alle Geräte in einem Call ─────────────────────────────
 
     @GET
@@ -132,14 +165,16 @@ public class VictronResource {
         return new DashboardResponse(
             store.getAllMppt(),
             store.getAllShunt(),
-            store.getAllOrion()
+            store.getAllOrion(),
+            store.getAllBattery()
         );
     }
 
     public record DashboardResponse(
         Map<String, MpptData>       mppt,
         Map<String, SmartShuntData> shunt,
-        Map<String, OrionData>      orion
+        Map<String, OrionData>      orion,
+        Map<String, BulltronData>   battery
     ) {}
 
     // ── BLE Discovery: alle sichtbaren Geräte ───────────────────────────────
@@ -159,6 +194,7 @@ public class VictronResource {
 
         return devices.stream()
             .filter(d -> d.getAddress() != null)
+            .filter(d -> !blacklist.isBlacklisted(d.getAddress(), d.getName()))
             .map(d -> {
                 String mac = d.getAddress();
                 String macNorm = mac.toUpperCase().replaceAll("[^A-F0-9]", "");

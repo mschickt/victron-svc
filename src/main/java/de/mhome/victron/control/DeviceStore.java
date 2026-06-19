@@ -1,5 +1,6 @@
 package de.mhome.victron.control;
 
+import de.mhome.victron.entity.BulltronData;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
 import de.mhome.victron.entity.SmartShuntData;
@@ -19,13 +20,15 @@ import java.util.function.ToDoubleFunction;
 @ApplicationScoped
 public class DeviceStore {
 
-    private final Map<String, MpptData>       mpptMap  = new ConcurrentHashMap<>();
-    private final Map<String, SmartShuntData> shuntMap = new ConcurrentHashMap<>();
-    private final Map<String, OrionData>      orionMap = new ConcurrentHashMap<>();
+    private final Map<String, MpptData>       mpptMap    = new ConcurrentHashMap<>();
+    private final Map<String, SmartShuntData> shuntMap   = new ConcurrentHashMap<>();
+    private final Map<String, OrionData>      orionMap   = new ConcurrentHashMap<>();
+    private final Map<String, BulltronData>   batteryMap = new ConcurrentHashMap<>();
 
-    private final Set<String> mpptRegistered  = ConcurrentHashMap.newKeySet();
-    private final Set<String> shuntRegistered = ConcurrentHashMap.newKeySet();
-    private final Set<String> orionRegistered = ConcurrentHashMap.newKeySet();
+    private final Set<String> mpptRegistered    = ConcurrentHashMap.newKeySet();
+    private final Set<String> shuntRegistered   = ConcurrentHashMap.newKeySet();
+    private final Set<String> orionRegistered   = ConcurrentHashMap.newKeySet();
+    private final Set<String> batteryRegistered = ConcurrentHashMap.newKeySet();
 
     // Zeitpunkt des zuletzt dekodierten Advertisements pro Gerät (MAC, normalisiert).
     private final Map<String, Instant> lastSeen = new ConcurrentHashMap<>();
@@ -57,13 +60,23 @@ public class DeviceStore {
         repo.insert(data);
     }
 
-    public Optional<MpptData>       getMppt(String mac)  { return Optional.ofNullable(mpptMap.get(normalize(mac))); }
-    public Optional<SmartShuntData> getShunt(String mac) { return Optional.ofNullable(shuntMap.get(normalize(mac))); }
-    public Optional<OrionData>      getOrion(String mac) { return Optional.ofNullable(orionMap.get(normalize(mac))); }
+    public void updateBattery(BulltronData data) {
+        String key = normalize(data.mac());
+        batteryMap.put(key, data);
+        lastSeen.put(key, Instant.now());
+        if (batteryRegistered.add(key)) registerBatteryGauges(key, data.name());
+        repo.insert(data);
+    }
 
-    public Map<String, MpptData>       getAllMppt()  { return Map.copyOf(mpptMap); }
-    public Map<String, SmartShuntData> getAllShunt() { return Map.copyOf(shuntMap); }
-    public Map<String, OrionData>      getAllOrion() { return Map.copyOf(orionMap); }
+    public Optional<MpptData>       getMppt(String mac)    { return Optional.ofNullable(mpptMap.get(normalize(mac))); }
+    public Optional<SmartShuntData> getShunt(String mac)   { return Optional.ofNullable(shuntMap.get(normalize(mac))); }
+    public Optional<OrionData>      getOrion(String mac)   { return Optional.ofNullable(orionMap.get(normalize(mac))); }
+    public Optional<BulltronData>   getBattery(String mac) { return Optional.ofNullable(batteryMap.get(normalize(mac))); }
+
+    public Map<String, MpptData>       getAllMppt()    { return Map.copyOf(mpptMap); }
+    public Map<String, SmartShuntData> getAllShunt()   { return Map.copyOf(shuntMap); }
+    public Map<String, OrionData>      getAllOrion()   { return Map.copyOf(orionMap); }
+    public Map<String, BulltronData>   getAllBattery() { return Map.copyOf(batteryMap); }
 
     /** Zeitpunkt des zuletzt empfangenen Advertisements für diese MAC (falls je gesehen). */
     public Optional<Instant> getLastSeen(String mac) { return Optional.ofNullable(lastSeen.get(normalize(mac))); }
@@ -73,7 +86,6 @@ public class DeviceStore {
         Tags tags = Tags.of("mac", mac, "name", name);
         gauge("victron_mppt_battery_voltage_v", tags, mpptMap, mac, d -> ((MpptData) d).batteryVoltageV());
         gauge("victron_mppt_battery_current_a", tags, mpptMap, mac, d -> ((MpptData) d).batteryCurrentA());
-        gauge("victron_mppt_panel_voltage_v",   tags, mpptMap, mac, d -> ((MpptData) d).panelVoltageV());
         gauge("victron_mppt_panel_power_w",     tags, mpptMap, mac, d -> ((MpptData) d).panelPowerW());
         gauge("victron_mppt_yield_today_wh",    tags, mpptMap, mac, d -> ((MpptData) d).yieldTodayWh());
         gauge("victron_mppt_charger_state",     tags, mpptMap, mac, d -> ((MpptData) d).chargerState());
@@ -112,6 +124,23 @@ public class DeviceStore {
         gauge("victron_orion_state", tags, orionMap, mac, d -> ((OrionData) d).state());
         registerLastSeenGauge(mac, tags);
     }
+
+    private void registerBatteryGauges(String mac, String name) {
+        Tags tags = Tags.of("mac", mac, "name", name);
+        gauge("bulltron_pack_voltage_v",       tags, batteryMap, mac, d -> nz(((BulltronData) d).packVoltageV()));
+        gauge("bulltron_current_a",            tags, batteryMap, mac, d -> nz(((BulltronData) d).currentA()));
+        gauge("bulltron_soc_percent",          tags, batteryMap, mac, d -> nz(((BulltronData) d).stateOfChargePercent()));
+        gauge("bulltron_remaining_capacity_ah",tags, batteryMap, mac, d -> nz(((BulltronData) d).remainingCapacityAh()));
+        gauge("bulltron_cycles",               tags, batteryMap, mac, d -> nz(((BulltronData) d).cycles()));
+        gauge("bulltron_min_cell_voltage_v",   tags, batteryMap, mac, d -> nz(((BulltronData) d).minCellVoltageV()));
+        gauge("bulltron_max_cell_voltage_v",   tags, batteryMap, mac, d -> nz(((BulltronData) d).maxCellVoltageV()));
+        gauge("bulltron_min_temperature_c",    tags, batteryMap, mac, d -> nz(((BulltronData) d).minTemperatureC()));
+        gauge("bulltron_max_temperature_c",    tags, batteryMap, mac, d -> nz(((BulltronData) d).maxTemperatureC()));
+        registerLastSeenGauge(mac, tags);
+    }
+
+    /** {@code null} → NaN, sonst der Zahlenwert (Prometheus blendet NaN aus). */
+    private static double nz(Number n) { return n == null ? Double.NaN : n.doubleValue(); }
 
     /** Unix-Zeit (Sekunden) des zuletzt empfangenen Advertisements — für Staleness-Alarme in Prometheus. */
     private void registerLastSeenGauge(String mac, Tags tags) {

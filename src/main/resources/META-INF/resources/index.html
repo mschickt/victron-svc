@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Victron Dashboard</title>
+  <title>Dashboard</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -65,6 +65,19 @@
       font-size:13px; font-weight:700; text-transform:uppercase;
       letter-spacing:1px; color:var(--text-dim);
       margin-bottom:18px;
+    }
+
+    /* ── Device section (one block per device type) ── */
+    .device-section { margin-bottom:30px; }
+    .device-section:last-child { margin-bottom:0; }
+    .device-section .section-title {
+      display:flex; align-items:center; gap:8px;
+      padding-bottom:8px; border-bottom:1px solid var(--border);
+    }
+    .device-section .section-title .count {
+      font-size:11px; font-weight:600; color:var(--blue);
+      background:rgba(0,163,224,.12); border-radius:20px; padding:1px 8px;
+      letter-spacing:0;
     }
 
     /* ── Device grid ── */
@@ -223,7 +236,7 @@
       <rect width="32" height="32" rx="8" fill="#00a3e0"/>
       <polygon points="19,4 10,18 15,18 13,28 22,14 17,14" fill="white"/>
     </svg>
-    <div class="logo-text">Victron <span>Dashboard</span></div>
+    <div class="logo-text" id="logo-text">Dashboard</div>
   </div>
   <div id="status-bar">
     <div id="status-dot"></div>
@@ -233,14 +246,14 @@
 
 <!-- Tabs -->
 <div class="tabs">
-  <div class="tab active" onclick="showTab('victron', this)">Victron Geräte</div>
+  <div class="tab active" onclick="showTab('victron', this)">Geräte</div>
   <div class="tab" onclick="showTab('scanner', this)">BLE Scanner</div>
 </div>
 
-<!-- Section: Victron -->
+<!-- Section: Devices (alle Geräte, gruppiert in Abschnitte) -->
 <div class="section active" id="tab-victron">
   <div id="loader"><div class="spinner"></div> Lade Daten…</div>
-  <div class="grid" id="victron-grid" style="display:none"></div>
+  <div id="device-sections" style="display:none"></div>
 </div>
 
 <!-- Section: BLE Scanner -->
@@ -344,13 +357,15 @@ function renderMppt(d) {
           <div style="color:${solar?'#f1c40f':'var(--text-dim)'};margin-bottom:4px">${I_SUN}</div>
           <div class="fn-val" style="color:${solar?'#f1c40f':'var(--text-dim)'}">
             ${fmtW(d.panelPowerW)}<span class="fn-unit"> W</span></div>
-          <div class="fn-sub">${fmtV(d.panelVoltageV)} V · Solar</div>
+          <div class="fn-sub">Solar</div>
         </div>
         <div class="flow-arrow ${solar?'on':''}">›</div>
         <div class="flow-node">
           <div style="color:var(--${vcls(d.batteryVoltageV)==='cg'?'green':vcls(d.batteryVoltageV)==='co'?'orange':'red'});margin-bottom:4px">${I_BAT}</div>
           <div class="fn-val ${vcls(d.batteryVoltageV)}">${fmtV(d.batteryVoltageV)}<span class="fn-unit"> V</span></div>
-          <div class="fn-sub">${fmtA(d.batteryCurrentA)} A · Batterie</div>
+          <div style="font-size:15px;font-weight:700;line-height:1.2;margin-top:3px;color:${d.batteryCurrentA==null?'var(--text-dim)':d.batteryCurrentA>=0?'var(--green)':'var(--orange)'}">
+            ${fmtA(d.batteryCurrentA)}<span class="fn-unit"> A</span></div>
+          <div class="fn-sub">${d.batteryCurrentA==null?'Batterie':d.batteryCurrentA>=0?'Laden':'Entladen'}</div>
           <div class="bbar"><div class="bbar-fill" style="width:${pct.toFixed(1)}%;background:${bclr(pct)}"></div></div>
         </div>
         ${d.loadCurrentA != null ? `
@@ -419,9 +434,66 @@ function renderShunt(d) {
   </div>`;
 }
 
+// ── Battery card (Bulltron / Daly BMS) ───────────────────────────────────────
+function renderBattery(d) {
+  const soc = d.stateOfChargePercent;
+  const pct = soc ?? bpct(d.packVoltageV ?? 12);
+  const cc = d.currentA == null ? 'cd' : d.currentA >= 0 ? 'cg' : 'co';
+  const modeMap = {charging:['badge-float','Laden'], discharging:['badge-bulk','Entladen'], stationary:['badge-off','Ruhe']};
+  const [mBadge, mLabel] = modeMap[d.mode] || ['badge-unknown', d.mode || '—'];
+  const cellSpread = (d.minCellVoltageV!=null && d.maxCellVoltageV!=null)
+    ? ((d.maxCellVoltageV - d.minCellVoltageV) * 1000).toFixed(0) : null;
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-icon">${I_BAT}</div>
+        <div><div class="card-name">${d.name}</div><div class="card-mac">${d.mac}</div></div>
+      </div>
+      ${soc!=null ? `<span class="badge ${soc>60?'badge-float':soc>20?'badge-bulk':'badge-fault'}">${soc.toFixed(1)} %</span>`
+                  : `<span class="badge ${mBadge}">${mLabel}</span>`}
+    </div>
+    <div class="card-body">
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px">
+          <span>State of Charge</span><span>${soc!=null?soc.toFixed(1)+'%':'—'}</span></div>
+        <div class="bbar" style="height:8px">
+          <div class="bbar-fill" style="width:${pct.toFixed(1)}%;background:${bclr(pct)}"></div></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Spannung</div>
+          <div class="stat-val cb">${fmtV(d.packVoltageV)}<span class="stat-unit"> V</span></div></div>
+        <div class="stat"><div class="stat-label">Strom</div>
+          <div class="stat-val ${cc}">${fmtA(d.currentA)}<span class="stat-unit"> A</span></div></div>
+        <div class="stat"><div class="stat-label">Restkapazität</div>
+          <div class="stat-val cd">${d.remainingCapacityAh!=null?d.remainingCapacityAh.toFixed(1):'—'}<span class="stat-unit"> Ah</span></div></div>
+        <div class="stat"><div class="stat-label">Leistung</div>
+          <div class="stat-val ${cc}">${d.currentA!=null&&d.packVoltageV!=null?(d.currentA*d.packVoltageV).toFixed(0):'—'}<span class="stat-unit"> W</span></div></div>
+        ${(d.minCellVoltageV!=null||d.maxCellVoltageV!=null) ? `
+        <div class="stat"><div class="stat-label">Zelle min / max</div>
+          <div class="stat-val cd" style="font-size:14px">${d.minCellVoltageV!=null?d.minCellVoltageV.toFixed(3):'—'} / ${d.maxCellVoltageV!=null?d.maxCellVoltageV.toFixed(3):'—'}<span class="stat-unit"> V</span></div></div>
+        <div class="stat"><div class="stat-label">Zell-Spreizung</div>
+          <div class="stat-val ${cellSpread!=null&&+cellSpread>50?'co':'cd'}">${cellSpread??'—'}<span class="stat-unit"> mV</span></div></div>` : ''}
+        ${(d.minTemperatureC!=null||d.maxTemperatureC!=null) ? `
+        <div class="stat"><div class="stat-label">Temperatur</div>
+          <div class="stat-val cb">${d.minTemperatureC??'—'} … ${d.maxTemperatureC??'—'}<span class="stat-unit"> °C</span></div></div>` : ''}
+        ${d.cycles!=null ? `
+        <div class="stat"><div class="stat-label">Zyklen</div>
+          <div class="stat-val cd">${d.cycles}</div></div>` : ''}
+      </div>
+      ${(d.chargeMosfetOn!=null||d.dischargeMosfetOn!=null) ? `
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <span class="badge ${d.chargeMosfetOn?'badge-ok':'badge-offline'}">Lade-MOSFET ${d.chargeMosfetOn?'an':'aus'}</span>
+        <span class="badge ${d.dischargeMosfetOn?'badge-ok':'badge-offline'}">Entlade-MOSFET ${d.dischargeMosfetOn?'an':'aus'}</span>
+      </div>` : ''}
+    </div>
+    <div class="card-footer"><span>Aktualisiert: <strong>${fmtAge(d.timestamp)}</strong></span><span>Batterie</span></div>
+  </div>`;
+}
+
 function renderOffline(dev) {
-  const icon = dev.type==='SMART_SHUNT' ? I_SHUNT : I_SUN;
-  const label = {MPPT:'MPPT Solar Charger',SMART_SHUNT:'SmartShunt',ORION_TR:'Orion-Tr'}[dev.type]||dev.type;
+  const icon = dev.type==='SMART_SHUNT' ? I_SHUNT : dev.type==='BATTERY' ? I_BAT : I_SUN;
+  const label = {MPPT:'MPPT Solar Charger',SMART_SHUNT:'SmartShunt',ORION_TR:'Orion-Tr',BATTERY:'Batterie (Daly BMS)'}[dev.type]||dev.type;
+  const offNote = dev.type==='BATTERY' ? 'Keine Daten — BMS-App getrennt?' : 'Kein Advertisement-Key konfiguriert';
   return `<div class="card">
     <div class="card-header">
       <div class="card-title">
@@ -436,12 +508,44 @@ function renderOffline(dev) {
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/>
           <line x1="15" y1="9" x2="9" y2="15"/></svg></div>
-      <div style="color:var(--text-dim);font-size:13px">${label}<br>Kein Advertisement-Key konfiguriert</div>
+      <div style="color:var(--text-dim);font-size:13px">${label}<br>${offNote}</div>
     </div>
   </div>`;
 }
 
-// ── Victron auto-refresh ─────────────────────────────────────────────────────
+// ── Dashboard-Titel aus Konfiguration laden ──────────────────────────────────
+async function loadConfig() {
+  try {
+    const cfg = await fetch('/api/victron/config').then(r=>r.json());
+    if (cfg && cfg.title) {
+      document.title = cfg.title;
+      // letztes Wort farblich hervorheben (wie zuvor "Dashboard")
+      const parts = cfg.title.trim().split(/\s+/);
+      const last = parts.pop();
+      const head = parts.join(' ');
+      document.getElementById('logo-text').innerHTML =
+        (head ? head + ' ' : '') + '<span>' + last + '</span>';
+    }
+  } catch(e) { /* Titel-Default bleibt erhalten */ }
+}
+
+// ── Geräte-Abschnitte ────────────────────────────────────────────────────────
+// Eine Sektion kann mehrere Gerätetypen bündeln; die Reihenfolge der members
+// bestimmt die Kartenreihenfolge (links → rechts). Bulltron steht damit direkt
+// links neben dem SmartShunt, der denselben Akku misst.
+const SECTIONS = [
+  {title:'Solarladeregler', members:[
+    {type:'MPPT', render:renderMppt, pick:(dash,mac)=>dash.mppt[mac]},
+  ]},
+  {title:'Batteriespeicher', members:[
+    {type:'BATTERY',     render:renderBattery, pick:(dash,mac)=>dash.battery[mac]},
+    {type:'SMART_SHUNT',  render:renderShunt,   pick:(dash,mac)=>dash.shunt[mac]},
+  ]},
+  {title:'Orion-Tr Ladewandler', members:[
+    {type:'ORION_TR', render:()=>null, pick:()=>null},
+  ]},
+];
+
 async function refreshVictron() {
   try {
     const [dash, devs] = await Promise.all([
@@ -451,24 +555,38 @@ async function refreshVictron() {
     document.getElementById('status-dot').className = 'ok';
     document.getElementById('status-text').textContent = new Date().toLocaleTimeString('de-DE');
     document.getElementById('loader').style.display = 'none';
-    const grid = document.getElementById('victron-grid');
-    grid.style.display = '';
-    grid.innerHTML = devs.map(dev => {
-      const mac = dev.mac.replace(/:/g,'');
-      if (dev.type==='MPPT' && dash.mppt[mac])       return renderMppt(dash.mppt[mac]);
-      if (dev.type==='SMART_SHUNT' && dash.shunt[mac]) return renderShunt(dash.shunt[mac]);
-      return renderOffline(dev);
-    }).join('');
+    const wrap = document.getElementById('device-sections');
+    wrap.style.display = '';
+
+    let html = '';
+    for (const sec of SECTIONS) {
+      let cards = '', count = 0;
+      for (const m of sec.members) {
+        for (const dev of devs.filter(dev => dev.type === m.type)) {
+          const mac = dev.mac.replace(/:/g,'');
+          const data = m.pick(dash, mac);
+          cards += data ? m.render(data) : renderOffline(dev);
+          count++;
+        }
+      }
+      if (!count) continue;
+      html += `<div class="device-section">
+        <div class="section-title">${sec.title} <span class="count">${count}</span></div>
+        <div class="grid">${cards}</div>
+      </div>`;
+    }
+    wrap.innerHTML = html || `<div style="padding:24px;color:var(--text-dim);font-size:13px">Keine Geräte konfiguriert.</div>`;
   } catch(e) {
     console.error('refreshVictron error:', e);
     document.getElementById('status-dot').className = 'err';
     document.getElementById('status-text').textContent = 'Fehler: ' + e.message;
     document.getElementById('loader').style.display = 'none';
-    const grid = document.getElementById('victron-grid');
-    grid.style.display = '';
-    grid.innerHTML = `<div style="grid-column:1/-1;padding:24px;color:var(--red);font-size:13px">Fehler beim Laden: ${e.message}</div>`;
+    const wrap = document.getElementById('device-sections');
+    wrap.style.display = '';
+    wrap.innerHTML = `<div style="padding:24px;color:var(--red);font-size:13px">Fehler beim Laden: ${e.message}</div>`;
   }
 }
+loadConfig();
 refreshVictron();
 setInterval(refreshVictron, 5000);
 
@@ -560,9 +678,10 @@ async function showDetail(idx) {
       fetch(`/api/victron/mppt/${mac}`).then(r=>r.ok?r.json():null),
       fetch(`/api/victron/shunt/${mac}`).then(r=>r.ok?r.json():null),
       fetch(`/api/victron/orion/${mac}`).then(r=>r.ok?r.json():null),
+      fetch(`/api/victron/battery/${mac}`).then(r=>r.ok?r.json():null),
     ]);
-    const [mppt, shunt, orion] = results.map(r=>r.status==='fulfilled'?r.value:null);
-    const data = mppt || shunt || orion;
+    const [mppt, shunt, orion, battery] = results.map(r=>r.status==='fulfilled'?r.value:null);
+    const data = mppt || shunt || orion || battery;
 
     if (data) {
       html += `<hr style="border:none;border-top:1px solid var(--border);margin:16px 0">

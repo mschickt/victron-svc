@@ -20,7 +20,10 @@ public class MpptDecoder {
      *  [64.. 79]  panel_power      uint16          → W
      *  [80.. 88]  load_current     uint9  × 0.1   → A  (0x1FF = N/A)
      *  [89]       load_state       bit
-     *  [90..103]  panel_voltage    uint14 × 0.01  → V  (0x3FFF = N/A)
+     *
+     *  Hinweis: Es gibt kein panel_voltage-Feld in diesem Record-Typ
+     *  (gegen https://github.com/keshavdv/victron-ble geprueft); Bits ab
+     *  90 sind reservierte Padding-Bits, keine PV-Spannungsmessung.
      */
     public MpptData decode(String mac, String name, byte[] decrypted) {
         BitReader r = new BitReader(decrypted);
@@ -38,14 +41,11 @@ public class MpptDecoder {
         Double loadCurrent = (loadCurrentRaw == 0x1FF) ? null : loadCurrentRaw * 0.1;
         boolean loadState  = r.readBit(89);
 
-        int panelVoltageRaw = r.readUInt(90, 14);
-        double panelVoltage = (panelVoltageRaw == 0x3FFF) ? 0.0 : panelVoltageRaw * 0.01;
-
         return new MpptData(
             mac, name, Instant.now(),
             chargerState, MpptData.stateLabel(chargerState), errorCode,
             batteryVoltage, batteryCurrent,
-            panelVoltage, panelPower,
+            panelPower,
             yieldToday,
             loadCurrent, loadState
         );

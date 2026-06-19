@@ -19,7 +19,6 @@ public record MpptData(
     double batteryCurrentA,     // A
 
     // Solar
-    double panelVoltageV,       // V (0 wenn N/A)
     int panelPowerW,            // W
 
     // Ertrag

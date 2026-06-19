@@ -1,5 +1,6 @@
 package de.mhome.victron.control;
 
+import de.mhome.victron.entity.BulltronData;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
 import de.mhome.victron.entity.SmartShuntData;
@@ -76,6 +77,29 @@ public class ReadingRepository {
             """);
             st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_orion_mac_ts ON orion_reading(mac, ts)");
 
+            st.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS battery_reading (
+                  ts             INTEGER NOT NULL,
+                  mac            TEXT    NOT NULL,
+                  name           TEXT,
+                  pack_v         REAL,
+                  current_a      REAL,
+                  soc_pct        REAL,
+                  remaining_ah   REAL,
+                  mode           TEXT,
+                  charge_mos     INTEGER,
+                  discharge_mos  INTEGER,
+                  cell_count     INTEGER,
+                  temp_count     INTEGER,
+                  cycles         INTEGER,
+                  min_cell_v     REAL,
+                  max_cell_v     REAL,
+                  min_temp_c     INTEGER,
+                  max_temp_c     INTEGER
+                )
+            """);
+            st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_battery_mac_ts ON battery_reading(mac, ts)");
+
             LOG.info("SQLite schema initialised");
         } catch (SQLException e) {
             LOG.error("Failed to initialise SQLite schema", e);
@@ -86,8 +110,8 @@ public class ReadingRepository {
         try (Connection c = ds.getConnection();
              PreparedStatement ps = c.prepareStatement(
                  "INSERT INTO mppt_reading(ts, mac, name, charger_state, error_code, " +
-                 "battery_v, battery_a, panel_v, panel_w, yield_today_wh, load_a, load_on) " +
-                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")) {
+                 "battery_v, battery_a, panel_w, yield_today_wh, load_a, load_on) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?)")) {
             ps.setLong(1, d.timestamp().toEpochMilli());
             ps.setString(2, d.mac());
             ps.setString(3, d.name());
@@ -95,12 +119,11 @@ public class ReadingRepository {
             ps.setInt(5, d.errorCode());
             ps.setDouble(6, d.batteryVoltageV());
             ps.setDouble(7, d.batteryCurrentA());
-            ps.setDouble(8, d.panelVoltageV());
-            ps.setInt(9, d.panelPowerW());
-            ps.setInt(10, d.yieldTodayWh());
-            if (d.loadCurrentA() == null) ps.setNull(11, java.sql.Types.REAL);
-            else                          ps.setDouble(11, d.loadCurrentA());
-            ps.setInt(12, Boolean.TRUE.equals(d.loadState()) ? 1 : 0);
+            ps.setInt(8, d.panelPowerW());
+            ps.setInt(9, d.yieldTodayWh());
+            if (d.loadCurrentA() == null) ps.setNull(10, java.sql.Types.REAL);
+            else                          ps.setDouble(10, d.loadCurrentA());
+            ps.setInt(11, Boolean.TRUE.equals(d.loadState()) ? 1 : 0);
             ps.executeUpdate();
         } catch (SQLException e) {
             LOG.warnf("MPPT insert failed for %s: %s", d.mac(), e.getMessage());
@@ -156,5 +179,51 @@ public class ReadingRepository {
         } catch (SQLException e) {
             LOG.warnf("Orion insert failed for %s: %s", d.mac(), e.getMessage());
         }
+    }
+
+    public void insert(BulltronData d) {
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                 "INSERT INTO battery_reading(ts, mac, name, pack_v, current_a, soc_pct, remaining_ah, " +
+                 "mode, charge_mos, discharge_mos, cell_count, temp_count, cycles, " +
+                 "min_cell_v, max_cell_v, min_temp_c, max_temp_c) " +
+                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
+            ps.setLong(1, d.timestamp().toEpochMilli());
+            ps.setString(2, d.mac());
+            ps.setString(3, d.name());
+            setNullableDouble(ps, 4, d.packVoltageV());
+            setNullableDouble(ps, 5, d.currentA());
+            setNullableDouble(ps, 6, d.stateOfChargePercent());
+            setNullableDouble(ps, 7, d.remainingCapacityAh());
+            if (d.mode() == null) ps.setNull(8, java.sql.Types.VARCHAR);
+            else                  ps.setString(8, d.mode());
+            setNullableBool(ps, 9, d.chargeMosfetOn());
+            setNullableBool(ps, 10, d.dischargeMosfetOn());
+            setNullableInt(ps, 11, d.cellCount());
+            setNullableInt(ps, 12, d.tempSensorCount());
+            setNullableInt(ps, 13, d.cycles());
+            setNullableDouble(ps, 14, d.minCellVoltageV());
+            setNullableDouble(ps, 15, d.maxCellVoltageV());
+            setNullableInt(ps, 16, d.minTemperatureC());
+            setNullableInt(ps, 17, d.maxTemperatureC());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOG.warnf("Battery insert failed for %s: %s", d.mac(), e.getMessage());
+        }
+    }
+
+    private static void setNullableDouble(PreparedStatement ps, int idx, Double v) throws SQLException {
+        if (v == null) ps.setNull(idx, java.sql.Types.REAL);
+        else           ps.setDouble(idx, v);
+    }
+
+    private static void setNullableInt(PreparedStatement ps, int idx, Integer v) throws SQLException {
+        if (v == null) ps.setNull(idx, java.sql.Types.INTEGER);
+        else           ps.setInt(idx, v);
+    }
+
+    private static void setNullableBool(PreparedStatement ps, int idx, Boolean v) throws SQLException {
+        if (v == null) ps.setNull(idx, java.sql.Types.INTEGER);
+        else           ps.setInt(idx, v ? 1 : 0);
     }
 }
