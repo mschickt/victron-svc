@@ -13,8 +13,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import com.github.hypfvieh.bluetooth.wrapper.BluetoothDevice;
+
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -188,11 +191,22 @@ public class VictronResource {
         var devices = dm.getDevices(true);
         if (devices == null) return List.of();
 
+        // Defensive Kopie: der BLE-Scanner mutiert dieselbe Liste nebenläufig
+        // (BlueZ-Discovery-Callback). Ohne Kopie führt das hier zu sporadischen
+        // ConcurrentModificationException/NPE (genullte Listeneinträge) unter Last.
+        List<BluetoothDevice> snapshot;
+        try {
+            snapshot = new ArrayList<>(devices);
+        } catch (java.util.ConcurrentModificationException e) {
+            return List.of();
+        }
+
         var configured = deviceRegistry.devices().stream()
             .map(d -> d.mac().toUpperCase().replaceAll("[^A-F0-9]", ""))
             .collect(java.util.stream.Collectors.toSet());
 
-        return devices.stream()
+        return snapshot.stream()
+            .filter(java.util.Objects::nonNull)
             .filter(d -> d.getAddress() != null)
             .filter(d -> !blacklist.isBlacklisted(d.getAddress(), d.getName()))
             .map(d -> {
