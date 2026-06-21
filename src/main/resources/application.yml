@@ -1,6 +1,9 @@
 quarkus:
   application:
     name: victron-svc
+  info:
+    git:
+      enabled: true
   http:
     port: 8090
   log:
@@ -18,8 +21,9 @@ victron:
   ble:
     adapter: hci0          # BlueZ Adapter
     scan-interval: 2s      # häufiges Pollen des BlueZ-Caches auf neue Advertisement-Werte
+    inventory-interval: 5m # periodischer BLE-Inventory-Scan (alle sichtbaren Geräte, Blacklist-gefiltert): Log + Metrik
     auto-start: true       # Scanning startet automatisch; per POST /api/victron/scan/stop abschaltbar
-    blacklist-names: "NO"  # kommagetrennte Namens-Präfixe (case-insensitive), z.B. "NO,Unknown"
+    blacklist-names: "NO*"  # kommagetrennt, case-insensitive Glob-Pattern auf den ganzen Namen (* / ?)
     blacklist-macs: ""     # kommagetrennte MAC-Adressen
   # Geräte werden NICHT hier definiert, sondern außerhalb in der .env-Datei
   # (siehe .env.example). Docker Compose injiziert sie als

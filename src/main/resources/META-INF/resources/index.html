@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300a3e0'/%3E%3Cpolygon points='19,4 10,18 15,18 13,28 22,14 17,14' fill='white'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -27,15 +28,16 @@
     header {
       background:linear-gradient(135deg,#0d2040,#0a1628);
       border-bottom:1px solid var(--border);
-      padding:14px 24px;
+      padding:8px 20px;
       display:flex; align-items:center; justify-content:space-between;
       position:sticky; top:0; z-index:20;
     }
-    .logo { display:flex; align-items:center; gap:10px; }
-    .logo-text { font-size:17px; font-weight:700; }
+    .logo { display:flex; align-items:center; gap:8px; }
+    .logo-text { font-size:14px; font-weight:700; line-height:1.2; }
     .logo-text span { color:var(--blue); }
-    #status-bar { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); }
-    #status-dot { width:8px; height:8px; border-radius:50%; background:var(--gray); transition:background .3s; }
+    #build-info { font-size:10px; color:var(--text-dim); line-height:1.2; }
+    #status-bar { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); }
+    #status-dot { width:7px; height:7px; border-radius:50%; background:var(--gray); transition:background .3s; }
     #status-dot.ok  { background:var(--green); box-shadow:0 0 6px var(--green); }
     #status-dot.err { background:var(--red); }
 
@@ -232,11 +234,14 @@
 
 <header>
   <div class="logo">
-    <svg width="30" height="30" viewBox="0 0 32 32">
+    <svg width="22" height="22" viewBox="0 0 32 32">
       <rect width="32" height="32" rx="8" fill="#00a3e0"/>
       <polygon points="19,4 10,18 15,18 13,28 22,14 17,14" fill="white"/>
     </svg>
-    <div class="logo-text" id="logo-text">Dashboard</div>
+    <div>
+      <div class="logo-text" id="logo-text">Dashboard</div>
+      <div id="build-info"></div>
+    </div>
   </div>
   <div id="status-bar">
     <div id="status-dot"></div>
@@ -586,7 +591,26 @@ async function refreshVictron() {
     wrap.innerHTML = `<div style="padding:24px;color:var(--red);font-size:13px">Fehler beim Laden: ${e.message}</div>`;
   }
 }
+// ── Build-/Git-Info aus quarkus-info laden ───────────────────────────────────
+async function loadBuildInfo() {
+  try {
+    const info = await fetch('/q/info').then(r=>r.json());
+    const time = info.build && info.build.time
+      ? new Date(info.build.time).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+      : null;
+    const git = info.git || {};
+    const rev = git.commit && git.commit.id ? git.commit.id.describe || git.commit.id.abbrev : null;
+    const branch = git.branch;
+    const dirty = git.dirty === 'true' || git.dirty === true;
+    const parts = [];
+    if (time) parts.push('Build ' + time);
+    if (rev) parts.push((branch ? branch + '@' : '') + rev + (dirty ? ' (dirty)' : ''));
+    document.getElementById('build-info').textContent = parts.join(' · ');
+  } catch(e) { /* Build-Info ist rein informativ, kein harter Fehler */ }
+}
+
 loadConfig();
+loadBuildInfo();
 refreshVictron();
 setInterval(refreshVictron, 5000);
 
@@ -643,25 +667,42 @@ function renderBleTable(devs) {
 }
 
 // ── Device detail ────────────────────────────────────────────────────────────
+let detailMac = null;
+let detailTimer = null;
+const DETAIL_REFRESH_MS = 2000;
+
 async function showDetail(idx) {
-  const d = bleScanData[[...document.getElementById('ble-tbody').querySelectorAll('tr')].indexOf(
-    document.getElementById('ble-tbody').querySelectorAll('tr')[idx]
-  )];
   // Use sorted order from table
   const sorted = [...bleScanData].sort((a,b)=>(b.rssiDbm||-120)-(a.rssiDbm||-120));
   const dev = sorted[idx];
   if (!dev) return;
 
   const panel = document.getElementById('detail-panel');
+  panel.classList.add('open');
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  detailMac = dev.mac;
+  if (detailTimer) clearInterval(detailTimer);
+
+  await refreshDetail();
+  detailTimer = setInterval(refreshDetail, DETAIL_REFRESH_MS);
+}
+
+async function refreshDetail() {
+  if (!detailMac) return;
   const title = document.getElementById('detail-title');
   const body  = document.getElementById('detail-body');
 
-  title.textContent = `${dev.name || dev.mac} · ${dev.mac}`;
-  panel.classList.add('open');
-  body.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Lade…</div>';
+  // Aktuellsten Scan-Snapshot für RSSI/Manufacturer-IDs holen (Live-Daten)
+  let dev;
+  try {
+    const devs = await fetch('/api/victron/ble/devices').then(r=>r.json());
+    dev = devs.find(d => d.mac === detailMac);
+  } catch (e) { /* Snapshot fehlgeschlagen, alten Stand weiter anzeigen */ }
+  if (!dev) dev = bleScanData.find(d => d.mac === detailMac);
+  if (!dev) return; // Gerät nicht mehr im Scan sichtbar
 
-  // Scroll to panel
-  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  title.textContent = `${dev.name || dev.mac} · ${dev.mac}`;
 
   let html = `<div class="detail-kv">
     <span class="detail-k">MAC</span><span class="detail-v">${dev.mac}</span>
@@ -672,7 +713,7 @@ async function showDetail(idx) {
   </div>`;
 
   if (dev.configured) {
-    // Try to fetch decoded values
+    // Live-Messwerte (werden bei jedem Refresh neu geladen)
     const mac = dev.mac.replace(/:/g,'');
     const results = await Promise.allSettled([
       fetch(`/api/victron/mppt/${mac}`).then(r=>r.ok?r.json():null),
@@ -685,7 +726,9 @@ async function showDetail(idx) {
 
     if (data) {
       html += `<hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">Letzte Messwerte</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">
+          Live-Messwerte <span style="color:var(--green)">● aktualisiert alle ${DETAIL_REFRESH_MS/1000}s</span>
+        </div>
         <div class="detail-kv">`;
       for (const [k,v] of Object.entries(data)) {
         if (k==='mac'||k==='name') continue;
@@ -700,6 +743,8 @@ async function showDetail(idx) {
 
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
+  if (detailTimer) { clearInterval(detailTimer); detailTimer = null; }
+  detailMac = null;
 }
 </script>
 </body>

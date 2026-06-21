@@ -1,5 +1,6 @@
 package de.mhome.victron.control;
 
+import de.mhome.victron.entity.BleScanReading;
 import de.mhome.victron.entity.BulltronData;
 import de.mhome.victron.entity.MpptData;
 import de.mhome.victron.entity.OrionData;
@@ -99,6 +100,18 @@ public class ReadingRepository {
                 )
             """);
             st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_battery_mac_ts ON battery_reading(mac, ts)");
+
+            st.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS ble_scan_reading (
+                  ts                INTEGER NOT NULL,
+                  mac               TEXT    NOT NULL,
+                  name              TEXT,
+                  rssi_dbm          INTEGER,
+                  manufacturer_ids  TEXT,
+                  configured        INTEGER NOT NULL
+                )
+            """);
+            st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_ble_scan_mac_ts ON ble_scan_reading(mac, ts)");
 
             LOG.info("SQLite schema initialised");
         } catch (SQLException e) {
@@ -209,6 +222,23 @@ public class ReadingRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             LOG.warnf("Battery insert failed for %s: %s", d.mac(), e.getMessage());
+        }
+    }
+
+    public void insert(BleScanReading d) {
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                 "INSERT INTO ble_scan_reading(ts, mac, name, rssi_dbm, manufacturer_ids, configured) " +
+                 "VALUES (?,?,?,?,?,?)")) {
+            ps.setLong(1, d.timestamp().toEpochMilli());
+            ps.setString(2, d.mac());
+            ps.setString(3, d.name());
+            setNullableInt(ps, 4, d.rssiDbm());
+            ps.setString(5, d.manufacturerIds() == null ? null : String.join(",", d.manufacturerIds()));
+            ps.setInt(6, d.configured() ? 1 : 0);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOG.warnf("BLE-Scan insert failed for %s: %s", d.mac(), e.getMessage());
         }
     }
 

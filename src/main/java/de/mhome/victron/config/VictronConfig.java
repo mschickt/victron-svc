@@ -15,6 +15,11 @@ public interface VictronConfig {
         @WithName("scan-interval")
         String scanInterval();
 
+        /** Intervall des periodischen BLE-Inventory-Scans (Log + Metrik aller sichtbaren Geräte). */
+        @WithName("inventory-interval")
+        @WithDefault("5m")
+        String inventoryInterval();
+
         /** When false (default) scanning stays off at boot and is started via the REST API. */
         @WithName("auto-start")
         @WithDefault("false")
@@ -29,5 +34,14 @@ public interface VictronConfig {
         @WithName("blacklist-macs")
         @WithDefault("")
         String blacklistMacs();
+
+        /**
+         * Kommagetrennte {@code MAC=Anzeigename}-Paare für nicht konfigurierte, aber
+         * bekannte Fremdgeräte (z. B. AirTags) — überschreibt nur den Anzeigenamen in
+         * der Inventory-Liste, ohne das Gerät zu pollen oder zu blacklisten.
+         */
+        @WithName("known-names")
+        @WithDefault("")
+        String knownNames();
     }
 }

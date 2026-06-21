@@ -1,6 +1,5 @@
 package de.mhome.victron.boundary;
 
-import de.mhome.victron.config.BleBlacklist;
 import de.mhome.victron.config.DeviceRegistry;
 import de.mhome.victron.entity.BulltronData;
 import de.mhome.victron.entity.MpptData;
@@ -13,11 +12,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import com.github.hypfvieh.bluetooth.wrapper.BluetoothDevice;
-
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +24,7 @@ public class VictronResource {
     @Inject DeviceStore store;
     @Inject VictronBleScanner scanner;
     @Inject DeviceRegistry deviceRegistry;
-    @Inject BleBlacklist blacklist;
+    @Inject BleInventory bleInventory;
 
     /** Frei wählbarer Dashboard-Titel (über DASHBOARD_TITLE / dashboard.title), Default "Dashboard". */
     @ConfigProperty(name = "dashboard.title", defaultValue = "Dashboard")
@@ -184,58 +180,9 @@ public class VictronResource {
 
     @GET
     @Path("/ble/devices")
-    public List<BleDevice> bleDevices() {
-        var dm = scanner.deviceManager();
-        if (dm == null) return List.of();
-
-        var devices = dm.getDevices(true);
-        if (devices == null) return List.of();
-
-        // Defensive Kopie: der BLE-Scanner mutiert dieselbe Liste nebenläufig
-        // (BlueZ-Discovery-Callback). Ohne Kopie führt das hier zu sporadischen
-        // ConcurrentModificationException/NPE (genullte Listeneinträge) unter Last.
-        List<BluetoothDevice> snapshot;
-        try {
-            snapshot = new ArrayList<>(devices);
-        } catch (java.util.ConcurrentModificationException e) {
-            return List.of();
-        }
-
-        var configured = deviceRegistry.devices().stream()
-            .map(d -> d.mac().toUpperCase().replaceAll("[^A-F0-9]", ""))
-            .collect(java.util.stream.Collectors.toSet());
-
-        return snapshot.stream()
-            .filter(java.util.Objects::nonNull)
-            .filter(d -> d.getAddress() != null)
-            .filter(d -> !blacklist.isBlacklisted(d.getAddress(), d.getName()))
-            .map(d -> {
-                String mac = d.getAddress();
-                String macNorm = mac.toUpperCase().replaceAll("[^A-F0-9]", "");
-                var mfData = d.getManufacturerData();
-                var mfIds = mfData == null ? List.<String>of() :
-                    mfData.keySet().stream()
-                        .map(k -> "0x" + String.format("%04X", k.intValue()))
-                        .toList();
-                return new BleDevice(
-                    mac,
-                    d.getName(),
-                    d.getRssi() != null ? d.getRssi().intValue() : null,
-                    mfIds,
-                    configured.contains(macNorm)
-                );
-            })
-            .sorted(java.util.Comparator.comparing(b -> b.mac()))
-            .toList();
+    public List<BleInventory.BleDevice> bleDevices() {
+        return bleInventory.snapshot();
     }
-
-    public record BleDevice(
-        String mac,
-        String name,
-        Integer rssiDbm,
-        List<String> manufacturerIds,
-        boolean configured
-    ) {}
 
     // Prometheus metrics are exposed by Micrometer at /q/metrics
 }
